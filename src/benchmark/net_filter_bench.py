@@ -1,3 +1,21 @@
+"""
+This module provides benchmarking tools for evaluating network filtering algorithms.
+
+Functions:
+- add_noise_to_network: Adds random edges to a network to simulate noise.
+- bench_noise_filtering: Benchmarks a network filter's ability to reduce noise.
+
+Dependencies:
+- networkx
+- numpy
+- scikit-learn
+
+Usage:
+This module is typically used in conjunction with custom network filtering algorithms
+to evaluate their effectiveness in preserving important network structure while
+removing noise.
+"""
+
 import networkx as nx
 import numpy as np
 from sklearn.metrics import jaccard_score
