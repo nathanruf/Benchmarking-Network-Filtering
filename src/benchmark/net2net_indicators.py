@@ -111,3 +111,5 @@ def calculate_network_similarity(network1: Union[nx.Graph, nx.DiGraph],
 	except Exception as e:
 		print(f"Error calculating network similarity: {str(e)}")
 		return None
+	
+
