@@ -113,3 +113,36 @@ def calculate_network_similarity(network1: Union[nx.Graph, nx.DiGraph],
 		return None
 	
 
+def calculate_jaccard_distance(network1: Union[nx.Graph, nx.DiGraph], network2: Union[nx.Graph, nx.DiGraph]) -> float:
+	"""
+	Calculate the Jaccard distance between two networks based on their edge sets.
+
+	The Jaccard distance is defined as 1 minus the Jaccard similarity coefficient.
+	It measures the dissimilarity between two sets, in this case, the edge sets of the networks.
+
+	Parameters:
+	network1 (Union[nx.Graph, nx.DiGraph]): The first network
+	network2 (Union[nx.Graph, nx.DiGraph]): The second network
+
+	Returns:
+	float: Jaccard distance between the two networks (lower is more similar)
+	"""
+	try:
+		# Get edge sets for both networks
+		edges1 = set(network1.edges())
+		edges2 = set(network2.edges())
+
+		# Calculate Jaccard similarity coefficient
+		intersection = len(edges1.intersection(edges2))
+		union = len(edges1.union(edges2))
+
+		jaccard_similarity = intersection / union if union > 0 else 0
+
+		# Calculate Jaccard distance
+		jaccard_distance = 1 - jaccard_similarity
+
+		return jaccard_distance
+
+	except Exception as e:
+		print(f"Error calculating Jaccard distance: {str(e)}")
+		return None
