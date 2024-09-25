@@ -1,28 +1,68 @@
 import networkx as nx
+import numpy as np
+import random
+import scipy
 
+"""
+This class implements network filtering and graph sparsification techniques.
+
+Methods:
+- mst: Computes the Minimum Spanning Tree of a graph
+- pmfg: Computes the Planar Maximally Filtered Graph
+- threshold: Applies a global threshold filter to the graph
+- local_degree_sparsifier: Sparsifies graph based on local node degrees
+- random_edge_sparsifier: Randomly sparsifies edges
+- simmelian_sparsifier: Implements Simmelian backbone sparsification
+- disparity_filter: Implements the disparity filter technique
+- overlapping_trees: Implements the Overlapping Trees network reduction technique
+- k_core_decomposition: Implements k-core decomposition network reduction
+
+Dependencies:
+- networkx
+- numpy
+- scipy
+"""
 class Filter:
-    def mst(self, graph):
+    def mst(self, graph: nx.Graph) -> nx.Graph:
+        """
+        Computes the Minimum Spanning Tree of a graph.
+
+        Args:
+            graph (nx.Graph): Input graph
+
+        Returns:
+            nx.Graph: Minimum Spanning Tree
+        """
         filteredGraph = nx.Graph()
         id = {node: node for node in graph.nodes}
         sz = {node: 1 for node in graph.nodes}
 
-        sortedEdges = sorted(graph.edges(data = True), key = lambda x : x[2]['weight'])
+        sortedEdges = sorted(graph.edges(data=True), key=lambda x: x[2]['weight'])
 
         for edge in sortedEdges:
-            if(self.__find(edge[0], id) == self.__find(edge[1], id)):
+            if self.__find(edge[0], id) == self.__find(edge[1], id):
                 continue
             self.__union(edge[0], edge[1], sz, id)
-            filteredGraph.add_edge(edge[0], edge[1], weight = edge[2]['weight'])
+            filteredGraph.add_edge(edge[0], edge[1], weight=edge[2]['weight'])
 
         return filteredGraph
 
-    def pmfg(self, graph):
+    def pmfg(self, graph: nx.Graph) -> nx.Graph:
+        """
+        Computes the Planar Maximally Filtered Graph.
+
+        Args:
+            graph (nx.Graph): Input graph
+
+        Returns:
+            nx.Graph: Planar Maximally Filtered Graph
+        """
         filteredGraph = nx.Graph()
         edgeLimit = 3 * (len(graph.nodes) - 2)
-        sortedEdges = sorted(graph.edges(data = True), key = lambda i : i[2]['weight'])
+        sortedEdges = sorted(graph.edges(data=True), key=lambda i: i[2]['weight'])
 
         for edge in sortedEdges:
-            filteredGraph.add_edge(edge[0], edge[1], weight = edge[2]['weight'])
+            filteredGraph.add_edge(edge[0], edge[1], weight=edge[2]['weight'])
             if not nx.check_planarity(filteredGraph):
                 filteredGraph.remove_edge(edge[0], edge[1])
             
@@ -31,34 +71,220 @@ class Filter:
 
         return filteredGraph
 
-    def threshold(self, graph, threshold):
+    def threshold(self, graph: nx.Graph, threshold: float) -> nx.Graph:
+        """
+        Applies a global threshold filter to the graph.
+
+        Args:
+            graph (nx.Graph): Input graph
+            threshold (float): Threshold value for edge weights
+
+        Returns:
+            nx.Graph: Filtered graph
+        """
         filteredGraph = nx.Graph()
 
-        for u, v, edge in graph.edges(data = True):
+        for u, v, edge in graph.edges(data=True):
             if edge.get('weight', 0) >= threshold:
-                filteredGraph.add_edge(u, v, weight = edge['weight'])
+                filteredGraph.add_edge(u, v, weight=edge['weight'])
 
         return filteredGraph
     
-    #Métodos auxiliares para o algoritmo MST
-    def __find(self, p, id):
+    def __find(self, p: int, id: dict) -> int:
+        """
+        Helper method for the MST algorithm (Union-Find).
+
+        Args:
+            p (int): Node index
+            id (dict): Dictionary of node identifiers
+
+        Returns:
+            int: Root node identifier
+        """
         if id[p] == p:
             return p
         id[p] = self.__find(id[p], id)
         return id[p]
     
-    def __union(self, p, q, sz, id):
+    def __union(self, p: int, q: int, sz: dict, id: dict) -> None:
+        """
+        Helper method for the MST algorithm (Union-Find).
+
+        Args:
+            p (int): First node index
+            q (int): Second node index
+            sz (dict): Dictionary of set sizes
+            id (dict): Dictionary of node identifiers
+        """
         p = self.__find(p, id)
         q = self.__find(q, id)
 
         if p == q:
             return
 
-        #swap(p,q)
-        if(sz[p] > sz[q]):
+        if sz[p] > sz[q]:
             p, q = q, p
 
         id[p] = q
         sz[q] += sz[p]
+    
+    def local_degree_sparsifier(self, G: nx.Graph, target_ratio: float) -> nx.Graph:
+        """
+        Sparsifies graph based on local node degrees.
 
-        return
+        Args:
+            G (nx.Graph): Input graph
+            target_ratio (float): Target ratio of edges to keep
+
+        Returns:
+            nx.Graph: Sparsified graph
+        """
+        H = nx.Graph()
+        H.add_nodes_from(G.nodes())
+        
+        edges = sorted(G.edges(data=True), 
+                       key=lambda x: min(G.degree(x[0]), G.degree(x[1])),
+                       reverse=True)
+        
+        target_edges = int(G.number_of_edges() * target_ratio)
+        H.add_edges_from(edges[:target_edges])
+        
+        return H
+
+    def random_edge_sparsifier(self, G: nx.Graph, target_ratio: float, seed: int = 42) -> nx.Graph:
+        """
+        Randomly sparsifies edges.
+
+        Args:
+            G (nx.Graph): Input graph
+            target_ratio (float): Target ratio of edges to keep
+            seed (int): Random seed for reproducibility
+
+        Returns:
+            nx.Graph: Sparsified graph
+        """
+        # Set seeds for both numpy and Python's random
+        np.random.seed(seed)
+        random.seed(seed)
+
+        H = G.copy()
+        
+        num_to_remove = int(G.number_of_edges() * (1 - target_ratio))
+        edges_to_remove = list(G.edges())
+        random.shuffle(edges_to_remove)  # Use Python's random.shuffle
+        edges_to_remove = edges_to_remove[:num_to_remove]
+        
+        H.remove_edges_from(edges_to_remove)
+        return H
+
+    def simmelian_sparsifier(self, G: nx.Graph, max_rank: int = 5) -> nx.Graph:
+        """
+        Implements Simmelian backbone sparsification.
+
+        Args:
+            G (nx.Graph): Input graph
+            max_rank (int): Maximum rank considered for overlap calculation
+
+        Returns:
+            nx.Graph: Sparsified graph
+        """
+        def simmelian_strength(u, v):
+            u_neighbors = set(G.neighbors(u))
+            v_neighbors = set(G.neighbors(v))
+            common_neighbors = u_neighbors.intersection(v_neighbors)
+            return len(common_neighbors)
+        
+        H = nx.Graph()
+        H.add_nodes_from(G.nodes())
+        
+        for u in G.nodes():
+            neighbors = sorted(G.neighbors(u), 
+                               key=lambda x: simmelian_strength(u, x),
+                               reverse=True)
+            H.add_edges_from((u, v) for v in neighbors[:max_rank])
+        
+        return H
+
+    def disparity_filter(self, G: nx.Graph, alpha: float = 0.05) -> nx.Graph:
+        """
+        Implements the disparity filter technique as described in 
+        Serrano et al. (2009) PNAS paper.
+
+        Args:
+            G (nx.Graph): Input weighted graph
+            alpha (float): Significance level for the filter
+
+        Returns:
+            nx.Graph: Filtered graph
+        """
+        H = nx.Graph()
+        H.add_nodes_from(G.nodes())
+
+        for u in G.nodes():
+            k = G.degree(u)
+            if k > 1:
+                strength = sum(G[u][v].get('weight', 1) for v in G[u])
+                for v in G[u]:
+                    weight = G[u][v].get('weight', 1)
+                    p_ij = weight / strength
+                    alpha_ij = 1 - (k - 1) * scipy.integrate.quad(lambda x: (1 - x)**(k-2), 0, p_ij)[0]
+                    if alpha_ij < alpha:
+                        H.add_edge(u, v, weight=weight)
+
+        return H
+
+    def overlapping_trees(self, G: nx.Graph, num_trees: int = 3) -> nx.Graph:
+        """
+        Implements the Overlapping Trees network reduction technique as described in
+        Carmi et al. (2008) arXiv:0812.3227.
+
+        This method creates a reduced network by combining multiple spanning trees.
+
+        Args:
+            G (nx.Graph): Input weighted graph
+            num_trees (int): Number of spanning trees to generate and combine
+
+        Returns:
+            nx.Graph: Reduced graph
+        """
+        H = nx.Graph()
+        H.add_nodes_from(G.nodes())
+
+        for _ in range(num_trees):
+            for (u, v, d) in G.edges(data=True):
+                d['random_weight'] = np.random.random()
+
+            T = nx.minimum_spanning_tree(G, weight='random_weight')
+            H.add_edges_from(T.edges(data=True))
+
+        for (u, v, d) in H.edges(data=True):
+            d['weight'] = G[u][v].get('weight', 1)
+
+        return H
+
+    def k_core_decomposition(self, G: nx.Graph, k: int = None) -> nx.Graph:
+        """
+        Implements the k-core decomposition network reduction technique.
+
+        This method creates a reduced network by recursively removing nodes with degree less than k,
+        until no such nodes remain. If k is not specified, it returns the main core (largest k-core).
+
+        Args:
+            G (nx.Graph): Input graph
+            k (int, optional): The order of the core. If not specified, returns the main core.
+
+        Returns:
+            nx.Graph: Reduced graph (k-core subgraph)
+
+        References:
+            Batagelj, V., & Zaversnik, M. (2003). An O(m) Algorithm for Cores Decomposition of Networks.
+            https://arxiv.org/abs/cs.DS/0310049
+        """
+        core_numbers = nx.core_number(G)
+
+        if k is None:
+            k = max(core_numbers.values())
+
+        H = G.subgraph([n for n, cn in core_numbers.items() if cn >= k])
+
+        return H
