@@ -8,6 +8,7 @@ Functions:
 - simmelian_sparsifier: Implements Simmelian backbone sparsification
 - disparity_filter: Implements the disparity filter technique
 - overlapping_trees: Implements the Overlapping Trees network reduction technique
+- k_core_decomposition: Implements k-core decomposition network reduction
 
 Dependencies:
 - networkx
