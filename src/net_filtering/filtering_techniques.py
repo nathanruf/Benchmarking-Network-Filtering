@@ -187,3 +187,33 @@ def overlapping_trees(G: nx.Graph, num_trees: int = 3) -> nx.Graph:
 		d['weight'] = G[u][v].get('weight', 1)
 
 	return H
+
+def k_core_decomposition(G: nx.Graph, k: int = None) -> nx.Graph:
+	"""
+	Implements the k-core decomposition network reduction technique.
+
+	This method creates a reduced network by recursively removing nodes with degree less than k,
+	until no such nodes remain. If k is not specified, it returns the main core (largest k-core).
+
+	Args:
+		G (nx.Graph): Input graph
+		k (int, optional): The order of the core. If not specified, returns the main core.
+
+	Returns:
+		nx.Graph: Reduced graph (k-core subgraph)
+
+	References:
+		Batagelj, V., & Zaversnik, M. (2003). An O(m) Algorithm for Cores Decomposition of Networks.
+		https://arxiv.org/abs/cs.DS/0310049
+	"""
+	# Compute core numbers for all nodes
+	core_numbers = nx.core_number(G)
+
+	if k is None:
+		# If k is not specified, use the maximum core number (main core)
+		k = max(core_numbers.values())
+
+	# Create a subgraph with nodes having core number >= k
+	H = G.subgraph([n for n, cn in core_numbers.items() if cn >= k])
+
+	return H
