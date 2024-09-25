@@ -7,6 +7,7 @@ Functions:
 - random_edge_sparsifier: Randomly sparsifies edges
 - simmelian_sparsifier: Implements Simmelian backbone sparsification
 - disparity_filter: Implements the disparity filter technique
+- overlapping_trees: Implements the Overlapping Trees network reduction technique
 
 Dependencies:
 - networkx
@@ -148,5 +149,41 @@ def disparity_filter(G: nx.Graph, alpha: float = 0.05) -> nx.Graph:
 				alpha_ij = 1 - (k - 1) * scipy.integrate.quad(lambda x: (1 - x)**(k-2), 0, p_ij)[0]
 				if alpha_ij < alpha:
 					H.add_edge(u, v, weight=weight)
+
+	return H
+
+def overlapping_trees(G: nx.Graph, num_trees: int = 3) -> nx.Graph:
+	"""
+	Implements the Overlapping Trees network reduction technique as described in
+	Carmi et al. (2008) arXiv:0812.3227.
+
+	This method creates a reduced network by combining multiple spanning trees.
+
+	Args:
+		G (nx.Graph): Input weighted graph
+		num_trees (int): Number of spanning trees to generate and combine
+
+	Returns:
+		nx.Graph: Reduced graph
+	"""
+	# Initialize the reduced graph
+	H = nx.Graph()
+	H.add_nodes_from(G.nodes())
+
+	# Generate multiple minimum spanning trees
+	for _ in range(num_trees):
+		# Generate random weights for this iteration
+		for (u, v, d) in G.edges(data=True):
+			d['random_weight'] = np.random.random()
+
+		# Compute the minimum spanning tree using the random weights
+		T = nx.minimum_spanning_tree(G, weight='random_weight')
+
+		# Add the edges from this tree to the reduced graph
+		H.add_edges_from(T.edges(data=True))
+
+	# Transfer original edge weights to the reduced graph
+	for (u, v, d) in H.edges(data=True):
+		d['weight'] = G[u][v].get('weight', 1)
 
 	return H
