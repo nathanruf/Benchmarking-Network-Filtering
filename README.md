@@ -51,6 +51,8 @@ To run a benchmark:
    # Run the benchmark
    result = bench_noise_filtering(G, filter_instance.mst)
    print(f"Result: {result")
+   ```
+
 
 ## Benchmarking Process
 
@@ -102,7 +104,6 @@ The `/data/simulated_nets/` directory contains artificially generated network da
 These simulated networks provide a diverse set of graph structures and properties, allowing for comprehensive benchmarking of filtering techniques across various network types.
 
 To generate new simulated networks or modify existing ones, refer to the `data/simulated_nets/generate_simulated_networks.py` script.
-   ```
 
 ## Available Network Filtering Techniques
 
