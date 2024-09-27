@@ -91,14 +91,14 @@ To run a benchmark:
    import networkx as nx
 
    # Load your network
-   G = nx.read_edgelist("data/your_network.edgelist")
+   G = pickle.load("/data/simulated_nets/random_graph.pickle")
 
    # Create a filter instance
    filter_instance = Filter()
 
    # Run the benchmark
-   jaccard_score = bench_noise_filtering(G, filter_instance.mst)
-   print(f"Jaccard Score: {jaccard_score}")
+   result = bench_noise_filtering(G, filter_instance.mst)
+   print(f"Result: {result")
    ```
 
 ## Benchmarking Process
