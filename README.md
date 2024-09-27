@@ -1,7 +1,7 @@
 
 ##  Benchmarking Network Filtering
 
-This repository implements a framework for benchmarking various network filtering techniques. It also provides real and simulated networks and it implements common network filtering techniques for benchmarking purposes.
+This repository implements a framework for benchmarking various network filtering techniques. It also provides real and simulated networks and it implements common network filtering techniques for benchmarking purposes. See original research proposal [HERE](https://docs.google.com/document/d/1d4vKYAfspwY5npEHu1PBNh5hgWPiw_A6idKMB5Vh7UE/edit).
 
 ## Project Structure
 
