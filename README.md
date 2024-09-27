@@ -5,9 +5,9 @@ This repository implements a framework for benchmarking various network filterin
 
 ## Project Structure
 
-- **data/:** Includes sample datasets and network traces for testing
-  - **real_nets/:** Networks extracted from ICON
-  - **simulated_nets/:** Simulated network datasets
+- **data/:** Includes sample and real networks for benchmarking
+  - **real_nets/:** Networks extracted from Index of Complex Networks (ICON)
+  - **simulated_nets/:** Random networks
 - **src/:** Contains the source code for the benchmarking framework
   - **benchmark/:** Benchmarking utilities and core functionality
   - **net_filtering/:** Implementation of various network filtering techniques
@@ -30,7 +30,6 @@ This repository implements a framework for benchmarking various network filterin
    pip install -r requirements.txt
    ```
 
-
 ## Available Data
 
 The `/data` directory contains both real and simulated network datasets for benchmarking purposes:
@@ -41,11 +40,11 @@ The `/data/real_nets/` directory contains networks extracted from ICON (Index of
 
 1. Full Data: `real_net.pickle`
 
-Corpus of 550 real-world networks drawn from the Index of Complex Networks (ICON) used in this [PNAS paper](https://github.com/Aghasemian/OptimalLinkPrediction). This corpus spans a variety of sizes and structures, with 23% social, 23% economic, 32% biological, 12% technological, 3% information, and 7% transportation graphs (Fig. S1 of the paper).
+Corpus of 550 real-world networks drawn from the Index of Complex Networks (ICON) used in this [PNAS paper](https://github.com/Aghasemian/OptimalLinkPrediction). This corpus spans a variety of sizes and structures, with 23% social, 23% economic, 32% biological, 12% technological, 3% information, and 7% transportation graphs.
 
 2. Sample Data: `real_net_sample.pickle`
 
-A sample of 4 hand-picked networks to run quick benchmarking with network_index = [447, 133, 122, 80]. Refer to [ICON network metadata](https://docs.google.com/spreadsheets/d/1DCSPqD3cLDKZ00QC7NjZpjgnE33coCXwigjxTY5NhYc/edit?usp=sharing) to view details of those sample networks.
+A sample of 4 hand-picked networks to run quick benchmarking; network_index = [447, 133, 122, 80]. Refer to [ICON network metadata](https://docs.google.com/spreadsheets/d/1DCSPqD3cLDKZ00QC7NjZpjgnE33coCXwigjxTY5NhYc/edit?usp=sharing) to view details of those sample networks.
 
 
 ### Simulated Networks
