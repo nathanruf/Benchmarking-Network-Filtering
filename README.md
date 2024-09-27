@@ -58,11 +58,11 @@ To run a benchmark:
 
 1. The framework adds noise to the input network using the `add_noise_to_network` function.
 2. It then applies the specified filtering technique to the noisy network.
-3. The performance is evaluated by comparing the filtered network to the original network using metrics such as Jaccard similarity.
+3. The performance is evaluated by comparing the filtered network to the original network.
 
 ## Available Data
 
-The `/data` directory contains both real and simulated network datasets for benchmarking purposes:
+The `/data` directory contains both real and simulated network datasets for benchmarking purposes.
 
 ### Real Networks
 
