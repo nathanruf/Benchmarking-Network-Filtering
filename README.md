@@ -45,7 +45,7 @@ Corpus of 550 real-world networks drawn from the Index of Complex Networks (ICON
 
 2. Sample Data: `real_net_sample.pickle`
 
-A sample of 4 hand-picked networks to run quick benchmarking with network_index = [447, 133, 122, 80].
+A sample of 4 hand-picked networks to run quick benchmarking with network_index = [447, 133, 122, 80]. Refer to [ICON network metadata](https://docs.google.com/spreadsheets/d/1DCSPqD3cLDKZ00QC7NjZpjgnE33coCXwigjxTY5NhYc/edit?usp=sharing) to view details of those sample networks.
 
 
 ### Simulated Networks
