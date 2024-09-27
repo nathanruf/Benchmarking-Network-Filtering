@@ -101,13 +101,13 @@ To run a benchmark:
    print(f"Result: {result")
    ```
 
-## Benchmarking Process
+### Benchmarking Process
 
 1. The framework adds noise to the input network using the `add_noise_to_network` function.
 2. It then applies the specified filtering technique to the noisy network.
 3. The performance is evaluated by comparing the filtered network to the original network using metrics such as Jaccard similarity.
 
-## Adding New Filters
+### Adding New Filters
 
 To add a new filtering technique:
 
