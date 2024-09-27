@@ -30,6 +30,34 @@ This repository implements a framework for benchmarking various network filterin
    pip install -r requirements.txt
    ```
 
+## Usage
+
+To run a benchmark:
+
+1. Ensure you have the necessary dataset in the `data/` directory.
+2. Use the `src/benchmark/bench_noise_filtering.py` script to benchmark a specific filter:
+
+   ```python
+   from src.benchmark.bench_noise_filtering import bench_noise_filtering
+   from src.net_filtering.filter import Filter
+   import networkx as nx
+
+   # Load your network
+   G = pickle.load("/data/simulated_nets/random_graph.pickle")
+
+   # Create a filter instance
+   filter_instance = Filter()
+
+   # Run the benchmark
+   result = bench_noise_filtering(G, filter_instance.mst)
+   print(f"Result: {result")
+
+## Benchmarking Process
+
+1. The framework adds noise to the input network using the `add_noise_to_network` function.
+2. It then applies the specified filtering technique to the noisy network.
+3. The performance is evaluated by comparing the filtered network to the original network using metrics such as Jaccard similarity.
+
 ## Available Data
 
 The `/data` directory contains both real and simulated network datasets for benchmarking purposes:
@@ -74,37 +102,49 @@ The `/data/simulated_nets/` directory contains artificially generated network da
 These simulated networks provide a diverse set of graph structures and properties, allowing for comprehensive benchmarking of filtering techniques across various network types.
 
 To generate new simulated networks or modify existing ones, refer to the `data/simulated_nets/generate_simulated_networks.py` script.
-
-
-
-## Usage
-
-To run a benchmark:
-
-1. Ensure you have the necessary dataset in the `data/` directory.
-2. Use the `src/benchmark/bench_noise_filtering.py` script to benchmark a specific filter:
-
-   ```python
-   from src.benchmark.bench_noise_filtering import bench_noise_filtering
-   from src.net_filtering.filter import Filter
-   import networkx as nx
-
-   # Load your network
-   G = pickle.load("/data/simulated_nets/random_graph.pickle")
-
-   # Create a filter instance
-   filter_instance = Filter()
-
-   # Run the benchmark
-   result = bench_noise_filtering(G, filter_instance.mst)
-   print(f"Result: {result")
    ```
 
-### Benchmarking Process
+## Available Network Filtering Techniques
 
-1. The framework adds noise to the input network using the `add_noise_to_network` function.
-2. It then applies the specified filtering technique to the noisy network.
-3. The performance is evaluated by comparing the filtered network to the original network using metrics such as Jaccard similarity.
+The `src/net_filtering/filter.py` file contains various network filtering and graph sparsification techniques. Here's an overview of the available methods:
+
+1. Minimum Spanning Tree (MST)
+   - Method: `mst(graph)`
+   - Computes the Minimum Spanning Tree of a graph, keeping the minimum set of edges that connect all nodes with the lowest total edge weight.
+
+2. Planar Maximally Filtered Graph (PMFG)
+   - Method: `pmfg(graph)`
+   - Constructs a planar graph that maximizes the sum of edge weights while maintaining planarity.
+
+3. Global Threshold Filter
+   - Method: `threshold(graph, threshold)`
+   - Applies a global threshold to edge weights, removing edges below the specified threshold.
+
+4. Local Degree Sparsifier
+   - Method: `local_degree_sparsifier(G, target_ratio)`
+   - Sparsifies the graph based on local node degrees, keeping a target ratio of edges.
+
+5. Random Edge Sparsifier
+   - Method: `random_edge_sparsifier(G, target_ratio, seed=42)`
+   - Randomly removes edges to achieve a target sparsity ratio.
+
+6. Simmelian Backbone Sparsifier
+   - Method: `simmelian_sparsifier(G, max_rank=5)`
+   - Implements Simmelian backbone sparsification, focusing on strongly embedded edges.
+
+7. Disparity Filter
+   - Method: `disparity_filter(G, alpha=0.05)`
+   - Implements the disparity filter technique as described in Serrano et al. (2009) PNAS paper.
+
+8. Overlapping Trees
+   - Method: `overlapping_trees(G, num_trees=3)`
+   - Creates a reduced network by combining multiple spanning trees.
+
+9. K-Core Decomposition
+   - Method: `k_core_decomposition(G, k=None)`
+   - Implements k-core decomposition, recursively removing nodes with degree less than k.
+
+These filtering techniques can be applied to both weighted and unweighted graphs, providing a diverse set of approaches for network reduction and noise filtering. Each method has its own strengths and is suitable for different types of network structures and analysis goals.
 
 ### Adding New Filters
 
