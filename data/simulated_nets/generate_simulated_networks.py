@@ -3,7 +3,9 @@ import os
 import pickle
 import logging
 import random
+import math
 from networkx.generators.community import LFR_benchmark_graph
+from enum import Enum
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -11,6 +13,14 @@ logger = logging.getLogger(__name__)
 
 # Ensure the data/simulated directory exists
 os.makedirs('data/simulated_nets', exist_ok=True)
+
+# Define an Enum for Graph Types
+class GraphType(Enum):
+    RANDOM = 'random'
+    GRID = 'grid'
+    BARABASI_ALBERT = 'barabasi_albert'
+    LFR_BENCHMARK = 'lfr_benchmark'
+    WATTS_STROGATZ = 'watts_strogatz'
 
 def add_random_weights(G):
 	"""
@@ -130,25 +140,30 @@ def generate_watts_strogatz_graph(n, k, p, seed=42, weighted=False):
 	logger.info(f"Generated {'weighted ' if weighted else ''}Watts-Strogatz small-world graph with {n} nodes and {G.number_of_edges()} edges")
 	return G
 
-def save_graph(G, filename):
+def save_graph(G, directory, filename):
 	"""
 	Save a graph to a file.
 
 	Args:
 		G (networkx.Graph): Graph to save.
+		directory (str): Directory path to save the graph.
 		filename (str): Name of the file to save the graph.
 	"""
-	filepath = f'data/simulated_nets/{filename}'
+	os.makedirs(directory, exist_ok=True)
+
+	filepath = f'{directory}{filename}'
+
 	with open(filepath, 'wb') as f:
 		pickle.dump(G, f)
 	logger.info(f"Saved graph to {filepath}")
 
-def generate_and_save_graph(generator_func, filename, override=False, **kwargs):
+def generate_and_save_graph(generator_func, graph_type, filename, override=False, **kwargs):
 	"""
 	Generate a graph and save it if it doesn't exist or if override is True.
 
 	Args:
 		generator_func (function): Function to generate the graph.
+		graph_type (GraphType): Type of the graph (e.g., 'random', 'grid').
 		filename (str): Name of the file to save the graph.
 		override (bool): Whether to override existing files.
 		**kwargs: Additional arguments for the generator function.
@@ -156,13 +171,24 @@ def generate_and_save_graph(generator_func, filename, override=False, **kwargs):
 	Returns:
 		bool: True if a new graph was generated and saved, False otherwise.
 	"""
-	filepath = f'data/simulated_nets/{filename}'
+	weighted = kwargs.get('weighted', False)
+	
+	directory = f'data/simulated_nets/{graph_type.name.lower()}/'
+
+	# Define filepath based on whether it's weighted or unweighted
+	if weighted:
+		directory += 'weighted/'
+	else:
+		directory += 'unweighted/'
+
+	filepath = f'{directory}{filename}'
+		
 	if not override and os.path.exists(filepath):
 		logger.info(f"File {filepath} already exists. Skipping generation.")
 		return False
 
 	G = generator_func(**kwargs)
-	save_graph(G, filename)
+	save_graph(G, directory, filename)
 	return True
 
 def main(override=False):
@@ -172,19 +198,26 @@ def main(override=False):
 	Args:
 		override (bool): Whether to override existing files. Default is False.
 	"""
-	# Generate and save example graphs
-	generate_and_save_graph(generate_random_graph, 'random_graph_weighted.pickle', override, n=100, p=0.1, weighted=True)
-	generate_and_save_graph(generate_grid_graph, 'grid_graph_weighted.pickle', override, m=10, n=10, periodic=True, weighted=True)
-	generate_and_save_graph(generate_barabasi_albert_graph, 'barabasi_albert_graph_weighted.pickle', override, n=100, m=2, weighted=True)
-	generate_and_save_graph(generate_lfr_benchmark_graph, 'lfr_benchmark_graph_weighted.pickle', override, n=1000, tau1=2.5, tau2=1.5, mu=0.1, weighted=True)
-	generate_and_save_graph(generate_watts_strogatz_graph, 'watts_strogatz_graph_weighted.pickle', override, n=100, k=4, p=0.1, weighted=True)
 
-	# Generate unweighted versions for comparison
-	generate_and_save_graph(generate_random_graph, 'random_graph.pickle', override, n=100, p=0.1, weighted=False)
-	generate_and_save_graph(generate_grid_graph, 'grid_graph.pickle', override, m=10, n=10, periodic=True, weighted=False)
-	generate_and_save_graph(generate_barabasi_albert_graph, 'barabasi_albert_graph.pickle', override, n=100, m=2, weighted=False)
-	generate_and_save_graph(generate_lfr_benchmark_graph, 'lfr_benchmark_graph.pickle', override, n=1000, tau1=2.5, tau2=1.5, mu=0.1, weighted=False)
-	generate_and_save_graph(generate_watts_strogatz_graph, 'watts_strogatz_graph.pickle', override, n=100, k=4, p=0.1, weighted=False)
+	for n in range(100, 1100, 100):
+		rows = int(math.sqrt(n))
+		columns = n // rows
+
+		# Generate and save example graphs
+		generate_and_save_graph(generate_random_graph, GraphType.RANDOM, f'random_graph{n}.pickle', override, n=n, p=0.1, weighted=True)
+		generate_and_save_graph(generate_grid_graph, GraphType.GRID, f'grid_graph{n}.pickle', override, m=rows, n=columns, periodic=True, weighted=True)
+		generate_and_save_graph(generate_barabasi_albert_graph, GraphType.BARABASI_ALBERT, f'barabasi_albert_graph{n}.pickle', override, n=n, m=2, weighted=True)
+		#lfr_benchmark_graph is generating an error
+		#generate_and_save_graph(generate_lfr_benchmark_graph, GraphType.LFR_BENCHMARK, f'lfr_benchmark_graph{n}.pickle', override, n=n, tau1=2.5, tau2=1.5, mu=0.1, weighted=True)
+		generate_and_save_graph(generate_watts_strogatz_graph, GraphType.WATTS_STROGATZ, f'watts_strogatz_graph{n}.pickle', override, n=n, k=4, p=0.1, weighted=True)
+
+		# Generate unweighted versions for comparison
+		generate_and_save_graph(generate_random_graph, GraphType.RANDOM, f'random_graph{n}.pickle', override, n=n, p=0.1, weighted=False)
+		generate_and_save_graph(generate_grid_graph, GraphType.GRID, f'grid_graph{n}.pickle', override, m=rows, n=columns, periodic=True, weighted=False)
+		generate_and_save_graph(generate_barabasi_albert_graph, GraphType.BARABASI_ALBERT, f'barabasi_albert_graph{n}.pickle', override, n=n, m=2, weighted=False)
+		#lfr_benchmark_graph is generating an error
+		#generate_and_save_graph(generate_lfr_benchmark_graph, GraphType.LFR_BENCHMARK, f'lfr_benchmark_graph{n}.pickle', override, n=n, tau1=2.5, tau2=1.5, mu=0.1, weighted=False)
+		generate_and_save_graph(generate_watts_strogatz_graph, GraphType.WATTS_STROGATZ, f'watts_strogatz_graph{n}.pickle', override, n=n, k=4, p=0.1, weighted=False)
 
 if __name__ == "__main__":
 	import argparse
