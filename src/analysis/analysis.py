@@ -80,38 +80,55 @@ class Analysis:
             benchmark_instance.bench_structural_noise_filtering
         ]
 
-        # List of network indicators techniques
-        net_indicators_methods = [
-            netIndicators_instance.calculate_information_retention,
-            netIndicators_instance.calculate_jaccard_distance,
-            #netIndicators_instance.calculate_network_similarity
+        # List of noise levels
+        noise_levels = [
+            None,
+            0.1,
+            0.2,
+            0.3,
+            0.4,
+            0.5
         ]
 
         # List of networks
         networks = self.get_all_networks()
 
         # Creating combinations between networks, filters, benchmarks, and indicators
-        combinations = list(itertools.product(networks, filtering_funcs, benchmark_funcs,
-                                            net_indicators_methods))
+        combinations = list(itertools.product(networks, filtering_funcs, benchmark_funcs, noise_levels))
         
         # Filtering invalid combinations
         filters_that_require_weights = [filter_instance.mst, filter_instance.threshold]
 
-        valid_combinations = [
-            combo for combo in combinations if combo[0]['weighted'] or combo[1] not in filters_that_require_weights
-        ]
+        # If the benchmark function is 'bench_net2net_filtering', noise_level must be None
+        # For other benchmark functions, noise_level must not be None
+        valid_combinations = []
+        for combo in combinations:
+            network, filter_func, benchmark_func, noise_level = combo
+
+            # Check if the combination is valid based on the filter and benchmark
+            if (network['weighted'] or filter_func not in filters_that_require_weights) and \
+            (benchmark_func != benchmark_instance.bench_net2net_filtering or noise_level is None) and \
+            (benchmark_func == benchmark_instance.bench_net2net_filtering or noise_level is not None):
+                valid_combinations.append(combo)
 
         # Creating a DataFrame with these combinations
-        df = pd.DataFrame(valid_combinations, columns=['network', 'filter', 'benchmark', 'indicator'])
+        df = pd.DataFrame(valid_combinations, columns=['network', 'filter', 'benchmark', 'noise_level'])
+        
+        result_columns = ['information_retention', 'jaccard', 'degree_assortativity', 
+                      'average_clustering', 'average_shortest_path_length', 'density', 
+                      'average_degree_connectivity', 'transitivity', 
+                      'true_positive', 'true_negative', 'false_positive', 
+                      'false_negative', 'precision', 'recall', 'f1_score']
+
+        for column in result_columns:
+            df[column] = None  # Initialize each result column with None
 
         # Function to apply each combination
         def apply_benchmark(row):
             graph = row['network']['graph']
             filter_func = row['filter']
             benchmark_func = row['benchmark']
-            indicator_func = row['indicator']
-
-            print(row['network']['filename'])
+            noise = row['noise_level']
 
             print(row.name)
 
@@ -121,12 +138,30 @@ class Analysis:
                 filter = lambda G: filter_func(G, threshold=0.5)
             elif filter_func in [filter_instance.local_degree_sparsifier, filter_instance.random_edge_sparsifier]:
                 filter = lambda G: filter_func(G, target_ratio=0.5)
-            
-            result = benchmark_func(graph, filter, indicator_func)
-            return result
+
+            noisy_benchmark_funcs = [benchmark_instance.bench_noise_filtering, benchmark_instance.bench_structural_noise_filtering]
+            benchmark = benchmark_func
+            if benchmark_func in noisy_benchmark_funcs:
+                benchmark = lambda G, F, I: benchmark_func(G, F, I, noise_level = noise)
+
+            row['information_retention'] = benchmark(graph, filter, netIndicators_instance.calculate_information_retention)
+            row['jaccard'] = benchmark(graph, filter, netIndicators_instance.calculate_jaccard_similarity)
+            common_metrics_ratio = benchmark(graph, filter, netIndicators_instance.common_metrics_ratio)
+
+            for key, value in common_metrics_ratio.items():
+                row[key] = value
+
+            if benchmark_func in noisy_benchmark_funcs:
+                predictive_filtering_metrics = benchmark(graph, filter, netIndicators_instance.predictive_filtering_metrics)
+
+                for key, value in predictive_filtering_metrics.items():
+                    row[key] = value
+                
+
+            return row
 
         # Applying the function to each row in the DataFrame
-        df['result'] = df.apply(apply_benchmark, axis=1)
+        df = df.apply(apply_benchmark, axis=1)
 
         # Creating a mapping of function objects to their names
         filter_names = {filter_instance.mst: 'MST', 
@@ -141,15 +176,10 @@ class Analysis:
         benchmark_names = {benchmark_instance.bench_net2net_filtering: 'Net2Net Filtering',
                         benchmark_instance.bench_noise_filtering: 'Noise Filtering',
                         benchmark_instance.bench_structural_noise_filtering: 'Structural Noise Filtering'}
-
-        indicator_names = {netIndicators_instance.calculate_information_retention: 'Information Retention',
-                        netIndicators_instance.calculate_jaccard_distance: 'Jaccard Distance',
-                        netIndicators_instance.calculate_network_similarity: 'Network Similarity'}
-
+        
         # Replace function objects with their string names
         df['filter'] = df['filter'].map(filter_names)
         df['benchmark'] = df['benchmark'].map(benchmark_names)
-        df['indicator'] = df['indicator'].map(indicator_names)
 
         # Adding columns for filename and weighted based on the values in the 'network' dictionary
         df['filename'] = df['network'].apply(lambda x: x['filename'].replace('.pickle', ''))
