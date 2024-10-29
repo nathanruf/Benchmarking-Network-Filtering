@@ -12,10 +12,10 @@ Functions:
 
 import networkx as nx
 import numpy as np
-from sklearn.metrics import f1_score, recall_score, precision_score, confusion_matrix
+from sklearn.metrics import f1_score, recall_score, precision_score, confusion_matrix, root_mean_squared_error
 from typing import Union, List
 from scipy.stats import entropy
-from scipy.spatial.distance import cosine
+from itertools import combinations
 
 class NetworkIndicators():
     def calculate_information_retention(self, original_graph: Union[nx.Graph, nx.DiGraph], 
@@ -62,31 +62,25 @@ class NetworkIndicators():
 
         return information_retention
     
-    def predictive_filtering_metrics(self, original_graph: Union[nx.Graph, nx.DiGraph], 
-                                 noisy_graph: Union[nx.Graph, nx.DiGraph],
+    def predictive_filtering_metrics(self, original_graph: Union[nx.Graph, nx.DiGraph],
                                  filtered_graph: Union[nx.Graph, nx.DiGraph]) -> dict:
         """
         Calculate predictive filtering metrics for the given graphs.
 
         Parameters:
             original_graph (Union[nx.Graph, nx.DiGraph]): The original, unfiltered network.
-            noisy_graph (Union[nx.Graph, nx.DiGraph]): The graph with added noise.
             filtered_graph (Union[nx.Graph, nx.DiGraph]): The filtered network.
 
         Returns:
-            dict: A dictionary containing calculated metrics, such as true positives, false negatives, precision, recall, and F1 score.
+            dict: A dictionary containing calculated metrics, such as true positives, false negatives, precision, recall, F1 score and RMSE.
         """
         y_true = []  # True labels for the edges
         y_pred = []  # Predicted labels for the edges
 
-        original_edges = original_graph.edges()  # Edges of the original graph
-        filtered_edges = filtered_graph.edges()  # Edges of the filtered graph
-        noisy_edges = noisy_graph.edges()        # Edges of the noisy graph
-
-        # Populate y_true and y_pred based on the edges
-        for edge in noisy_edges:
-            y_true.append(1 if edge in original_edges else 0)  # 1 if edge exists in original, else 0
-            y_pred.append(1 if edge in filtered_edges else 0)  # 1 if edge exists in filtered, else 0
+        # Adds 1 if edge (u, v) exists, else 0
+        for u, v in combinations(original_graph.nodes, 2):
+            y_true.append(1 if original_graph.has_edge(u, v) else 0)
+            y_pred.append(1 if filtered_graph.has_edge(u, v) else 0)
 
         # Names of the metrics
         metric_names = [
@@ -96,7 +90,8 @@ class NetworkIndicators():
             'false_negative',
             'precision',
             'recall',
-            'f1_score'
+            'f1_score',
+            'RMSE'
         ]
 
         # Calculate the confusion matrix
@@ -108,9 +103,10 @@ class NetworkIndicators():
             confusion_matrix_values[0][0],  # True negatives
             confusion_matrix_values[0][1],  # False positives
             confusion_matrix_values[1][0],  # False negatives
-            precision_score(y_true, y_pred, zero_division = 0),  # Precision
+            precision_score(y_true, y_pred, zero_division = 0),   # Precision
             recall_score(y_true, y_pred, zero_division = 0),      # Recall
-            f1_score(y_true, y_pred, zero_division = 0)           # F1 Score
+            f1_score(y_true, y_pred, zero_division = 0),          # F1 Score
+            root_mean_squared_error(y_true, y_pred)               # RMSE
         ]
 
         res = {}  # Dictionary to store the results
@@ -122,18 +118,17 @@ class NetworkIndicators():
         return res  # Return the dictionary containing metrics
 
     
-    def common_metrics_ratio(self, original_graph: Union[nx.Graph, nx.DiGraph], 
+    def common_metrics(self, original_graph: Union[nx.Graph, nx.DiGraph], 
                          filtered_graph: Union[nx.Graph, nx.DiGraph]) -> dict:
         """
-        Calculate the ratio of common network metrics between the original and filtered graphs,
-        adding 1 to each metric to prevent division by zero.
+        Calculate common network metrics for the original and filtered graphs.
 
         Parameters:
             original_graph (Union[nx.Graph, nx.DiGraph]): The original, unfiltered network.
             filtered_graph (Union[nx.Graph, nx.DiGraph]): The filtered network.
 
         Returns:
-            List[float]: A list of ratios for calculated metrics, comparing the filtered graph to the original graph.
+            dict: A dictionary with the calculated metrics.
         """
 
         def calculate_metrics(G: Union[nx.Graph, nx.DiGraph]) -> List[float]:
@@ -176,30 +171,38 @@ class NetworkIndicators():
             return metrics
         
         # Names of the metrics
-        metric_names = [
-            'degree_assortativity',
-            'average_clustering',
-            'average_shortest_path_length',
-            'density',
-            'average_degree_connectivity',
-            'transitivity'
+        filtered_metric_names = [
+            'degree_assortativity_filtered',
+            'average_clustering_filtered',
+            'average_shortest_path_length_filtered',
+            'density_filtered',
+            'average_degree_connectivity_filtered',
+            'transitivity_filtered',
+        ]
+
+        original_metric_names = [
+            'degree_assortativity_original'
+            'average_clustering_original',
+            'average_shortest_path_length_original',
+            'density_original',
+            'average_degree_connectivity_original',
+            'transitivity_original'
         ]
         
         # Dictionary to store the ratios
-        ratio_dict = {}
+        results_dict = {}
 
         # Calculate metrics for both networks
         original_metrics = calculate_metrics(original_graph)
         filtered_metrics = calculate_metrics(filtered_graph)
 
-        # Calculate ratios
-        for name, original, filtered in zip(metric_names, original_metrics, filtered_metrics):
-            if original is not None and filtered is not None:  # Check for valid metric values
-                ratio_dict[name] = (filtered + 1) / (original + 1)
-            else:
-                ratio_dict[name] = None  # Calculate the ratio with normalization
+        # Populate results_dict with calculated metrics
+        for original_name, filtered_name, original_metric, filtered_metric in zip(original_metric_names, filtered_metric_names,
+                                                                                   original_metrics, filtered_metrics):
+            results_dict[original_name] = original_metric
+            results_dict[filtered_name] = filtered_metric
 
-        return ratio_dict
+        return results_dict
         
     def calculate_jaccard_similarity(self, network1: Union[nx.Graph, nx.DiGraph], network2: Union[nx.Graph, nx.DiGraph]) -> float:
         """
