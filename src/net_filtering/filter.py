@@ -2,6 +2,8 @@ import networkx as nx
 import numpy as np
 import random
 import scipy
+import heapq
+from itertools import combinations
 
 """
 This class implements network filtering and graph sparsification techniques.
@@ -58,6 +60,7 @@ class Filter:
             nx.Graph: Planar Maximally Filtered Graph
         """
         filteredGraph = nx.Graph()
+        filteredGraph.add_nodes_from(graph.nodes)
         edgeLimit = 3 * (len(graph.nodes) - 2)
         sortedEdges = sorted(graph.edges(data=True), key=lambda i: i[2]['weight'])
 
@@ -83,6 +86,7 @@ class Filter:
             nx.Graph: Filtered graph
         """
         filteredGraph = nx.Graph()
+        filteredGraph.add_nodes_from(graph.nodes())
 
         for u, v, edge in graph.edges(data=True):
             if edge.get('weight', 0) >= threshold:
