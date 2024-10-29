@@ -8,6 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from benchmark.benchmark import Benchmark
 from benchmark.networkIndicators import NetworkIndicators
 from net_filtering.filter import Filter
+from pandarallel import pandarallel
 
 class Analysis:
     def get_all_networks(self) -> list[dict]:
@@ -104,7 +105,6 @@ class Analysis:
         valid_combinations = []
         for combo in combinations:
             network, filter_func, benchmark_func, noise_level = combo
-
             # Check if the combination is valid based on the filter and benchmark
             if (network['weighted'] or filter_func not in filters_that_require_weights) and \
             (benchmark_func != benchmark_instance.bench_net2net_filtering or noise_level is None) and \
@@ -114,17 +114,19 @@ class Analysis:
         # Creating a DataFrame with these combinations
         df = pd.DataFrame(valid_combinations, columns=['network', 'filter', 'benchmark', 'noise_level'])
         
-        result_columns = ['information_retention', 'jaccard', 'degree_assortativity', 
-                      'average_clustering', 'average_shortest_path_length', 'density', 
-                      'average_degree_connectivity', 'transitivity', 
-                      'true_positive', 'true_negative', 'false_positive', 
-                      'false_negative', 'precision', 'recall', 'f1_score']
+        result_columns = ['information_retention', 'jaccard', 'degree_assortativity_original', 
+                      'degree_assortativity_filtered', 'average_clustering_original', 'average_clustering_filtered',
+                      'average_shortest_path_length_original', 'average_shortest_path_length_filtered', 'density_original', 
+                      'density_filtered', 'average_degree_connectivity_original', 'average_degree_connectivity_filtered',
+                      'transitivity_original', 'transitivity_filtered', 'true_positive', 'true_negative', 'false_positive', 
+                      'false_negative', 'precision', 'recall', 'f1_score', 'RMSE']
 
         for column in result_columns:
             df[column] = None  # Initialize each result column with None
-
+        
         # Function to apply each combination
         def apply_benchmark(row):
+
             graph = row['network']['graph']
             filter_func = row['filter']
             benchmark_func = row['benchmark']
@@ -134,52 +136,39 @@ class Analysis:
 
             # Treat filter_func based on the specified logic
             filter = filter_func
-            if filter_func == filter_instance.threshold:
+            if filter_func.__name__ == filter_instance.threshold.__name__:
                 filter = lambda G: filter_func(G, threshold=0.5)
-            elif filter_func in [filter_instance.local_degree_sparsifier, filter_instance.random_edge_sparsifier]:
+            elif filter_func.__name__ in [filter_instance.local_degree_sparsifier.__name__, filter_instance.random_edge_sparsifier.__name__]:
                 filter = lambda G: filter_func(G, target_ratio=0.5)
 
-            noisy_benchmark_funcs = [benchmark_instance.bench_noise_filtering, benchmark_instance.bench_structural_noise_filtering]
+            noisy_benchmark_funcs = [benchmark_instance.bench_noise_filtering.__name__, benchmark_instance.bench_structural_noise_filtering.__name__]
             benchmark = benchmark_func
-            if benchmark_func in noisy_benchmark_funcs:
+            if benchmark_func.__name__ in noisy_benchmark_funcs:
                 benchmark = lambda G, F, I: benchmark_func(G, F, I, noise_level = noise)
 
             row['information_retention'] = benchmark(graph, filter, netIndicators_instance.calculate_information_retention)
             row['jaccard'] = benchmark(graph, filter, netIndicators_instance.calculate_jaccard_similarity)
-            common_metrics_ratio = benchmark(graph, filter, netIndicators_instance.common_metrics_ratio)
+            common_metrics = benchmark(graph, filter, netIndicators_instance.common_metrics)
 
-            for key, value in common_metrics_ratio.items():
+            for key, value in common_metrics.items():
                 row[key] = value
 
-            if benchmark_func in noisy_benchmark_funcs:
-                predictive_filtering_metrics = benchmark(graph, filter, netIndicators_instance.predictive_filtering_metrics)
+            predictive_filtering_metrics = benchmark(graph, filter, netIndicators_instance.predictive_filtering_metrics)
 
-                for key, value in predictive_filtering_metrics.items():
-                    row[key] = value
+            for key, value in predictive_filtering_metrics.items():
+                row[key] = value
                 
-
             return row
+        
+        # Initialize pandarallel
+        pandarallel.initialize()
 
         # Applying the function to each row in the DataFrame
-        df = df.apply(apply_benchmark, axis=1)
-
-        # Creating a mapping of function objects to their names
-        filter_names = {filter_instance.mst: 'MST', 
-                        filter_instance.threshold: 'Threshold',
-                        filter_instance.local_degree_sparsifier: 'Local Degree Sparsifier',
-                        filter_instance.random_edge_sparsifier: 'Random Edge Sparsifier',
-                        filter_instance.simmelian_sparsifier: 'Simmelian Sparsifier',
-                        filter_instance.disparity_filter: 'Disparity Filter',
-                        filter_instance.overlapping_trees: 'Overlapping Trees',
-                        filter_instance.k_core_decomposition: 'K-Core Decomposition'}
-
-        benchmark_names = {benchmark_instance.bench_net2net_filtering: 'Net2Net Filtering',
-                        benchmark_instance.bench_noise_filtering: 'Noise Filtering',
-                        benchmark_instance.bench_structural_noise_filtering: 'Structural Noise Filtering'}
+        df = df.parallel_apply(apply_benchmark, axis=1)
         
         # Replace function objects with their string names
-        df['filter'] = df['filter'].map(filter_names)
-        df['benchmark'] = df['benchmark'].map(benchmark_names)
+        df['filter'] = df['filter'].map(lambda x: x.__name__)
+        df['benchmark'] = df['benchmark'].map(lambda x: x.__name__)
 
         # Adding columns for filename and weighted based on the values in the 'network' dictionary
         df['filename'] = df['network'].apply(lambda x: x['filename'].replace('.pickle', ''))
@@ -190,6 +179,7 @@ class Analysis:
 
         df.to_csv('results/results.csv')
 
-analysis = Analysis()
+if __name__ == '__main__':
+    analysis = Analysis()
 
-analysis.generate_results()
+    analysis.generate_results()
