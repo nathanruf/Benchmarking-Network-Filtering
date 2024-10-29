@@ -94,13 +94,7 @@ class Benchmark:
         filtered_net = net_filter(noisy_net)
 
         # Apply the indicator function between the original and filtered networks
-        indicator_result = None
-        if indicator_func.__name__ == 'predictive_filtering_metrics':
-            indicator_result = indicator_func(input_net, noisy_net, filtered_net)
-        else:
-            indicator_result = indicator_func(input_net, filtered_net)
-
-        return indicator_result
+        return indicator_func(input_net, filtered_net)
 
     def bench_structural_noise_filtering(self, input_net: nx.Graph, net_filter: callable, indicator_func: callable,
                                           noise_level: float = 0.25, seed: int = 42) -> float:
@@ -129,14 +123,8 @@ class Benchmark:
         # Apply the filter function
         filtered_net = net_filter(noisy_net)
 
-        # Apply the indicator function between the original and filtered networks=
-        indicator_result = None
-        if indicator_func.__name__ == 'predictive_filtering_metrics':
-            indicator_result = indicator_func(input_net, noisy_net, filtered_net)
-        else:
-            indicator_result = indicator_func(input_net, filtered_net)
-
-        return indicator_result
+        # Apply the indicator function between the original and filtered networks
+        return indicator_func(structural_net, filtered_net)
     
     def bench_net2net_filtering(self, input_net: nx.Graph, net_filter: callable, indicator_func: callable) -> float:
         """
