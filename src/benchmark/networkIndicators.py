@@ -12,6 +12,7 @@ Functions:
 
 import networkx as nx
 import numpy as np
+import warnings
 from sklearn.metrics import f1_score, recall_score, precision_score, confusion_matrix, root_mean_squared_error
 from typing import Union, List
 from scipy.stats import entropy
@@ -177,11 +178,11 @@ class NetworkIndicators():
             'average_shortest_path_length_filtered',
             'density_filtered',
             'average_degree_connectivity_filtered',
-            'transitivity_filtered',
+            'transitivity_filtered'
         ]
 
         original_metric_names = [
-            'degree_assortativity_original'
+            'degree_assortativity_original',
             'average_clustering_original',
             'average_shortest_path_length_original',
             'density_original',
@@ -193,8 +194,10 @@ class NetworkIndicators():
         results_dict = {}
 
         # Calculate metrics for both networks
-        original_metrics = calculate_metrics(original_graph)
-        filtered_metrics = calculate_metrics(filtered_graph)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=RuntimeWarning)
+            original_metrics = calculate_metrics(original_graph)
+            filtered_metrics = calculate_metrics(filtered_graph)
 
         # Populate results_dict with calculated metrics
         for original_name, filtered_name, original_metric, filtered_metric in zip(original_metric_names, filtered_metric_names,
