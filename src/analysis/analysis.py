@@ -110,17 +110,34 @@ class Analysis:
         filter_instance = Filter()
         benchmark_instance = Benchmark()
 
+        # List of filtering techniques
         filtering_funcs = [
-            filter_instance.simmelian_sparsifier
+            filter_instance.mst,
+            # PMFG method is taking too long, consider optimizing or commenting it out for now
+            #filter_instance.pmfg,
+            filter_instance.threshold,
+            filter_instance.local_degree_sparsifier,
+            filter_instance.random_edge_sparsifier,
+            filter_instance.simmelian_sparsifier,
+            filter_instance.disparity_filter,
+            filter_instance.overlapping_trees,
+            filter_instance.k_core_decomposition
         ]
 
         # List of benchmark techniques
         benchmark_funcs = [
+            benchmark_instance.bench_net2net_filtering,
+            benchmark_instance.bench_noise_filtering,
             benchmark_instance.bench_structural_noise_filtering
         ]
 
         # List of noise levels
         noise_levels = [
+            None,
+            0.1,
+            0.2,
+            0.3,
+            0.4,
             0.5
         ]
 
@@ -175,7 +192,8 @@ class Analysis:
         # Dropping the 'network' column
         df.drop(columns=['network'], inplace=True)
 
-        df.to_csv('results/realNetsResults.csv', index=False)
+        filename = 'realNetsResults.csv' if real_net else 'simulatedNetsResults.csv'
+        df.to_csv(f'results/{filename}', index=False)
 
         end_time = time.time()  # Marca o tempo de fim
         formatted_time = time.strftime("%H:%M:%S", time.gmtime(end_time - start_time))
