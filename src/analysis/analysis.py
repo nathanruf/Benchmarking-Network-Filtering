@@ -6,8 +6,11 @@ import pandas as pd
 import itertools
 import matplotlib.pyplot as plt
 import time
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import numpy as np
+from enum import Enum
 from concurrent.futures import ProcessPoolExecutor
+from scipy.spatial.distance import cosine
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from benchmark.benchmark import Benchmark
 from benchmark.networkIndicators import NetworkIndicators
 from net_filtering.filter import Filter
@@ -200,35 +203,127 @@ class Analysis:
         print(f"Time to generate the results: {formatted_time}")
 
     def generate_graphics(self) -> None:
-        df = pd.read_csv('results/results.csv')
+        """
+        Generate and save graphs in four classes based on different metrics.
+        Filters data for graphs of size 1000 and saves in the appropriate directories.
+        """
+        class GraphType(Enum):
+            RANDOM = 'random'
+            GRID = 'grid'
+            BARABASI_ALBERT = 'barabasi_albert'
+            WATTS_STROGATZ = 'watts_strogatz'
+
+        def create_directories(base_path, benchmarks):
+            """
+            Create the directory structure for storing the graphs based on class, graph type, 
+            benchmark type, and whether they are weighted or unweighted.
+            """
+            for class_num in range(1, 5):
+                class_path = os.path.join(base_path, f'class_{class_num}')
+                os.makedirs(class_path, exist_ok=True)
+
+                for graph_type in GraphType:
+                    graph_path = os.path.join(class_path, graph_type.value)
+                    os.makedirs(graph_path, exist_ok=True)
+
+                    for benchmark in benchmarks:
+                        if benchmark == 'bench_net2net_filtering':
+                            continue
+                        benchmark_path = os.path.join(graph_path, benchmark)
+                        os.makedirs(os.path.join(benchmark_path, 'weighted'), exist_ok=True)
+                        os.makedirs(os.path.join(benchmark_path, 'unweighted'), exist_ok=True)
+
+        df = pd.read_csv('results/simulatedNetsResults.csv')
 
         df = df[df['filename'].str.contains('1000')]
+        benchmarks = df['benchmark'].unique()
 
-        results = {}
+        base_path = 'results/graphics'
 
-        for benchmark in df['benchmark'].unique():
+        create_directories(base_path, benchmarks)
+
+        for benchmark in benchmarks:
+            if benchmark == 'bench_net2net_filtering':
+                continue
+
             benchmark_results = df[df['benchmark'] == benchmark]
 
             for filename in df['filename'].unique():
                 file_benchmark_results = benchmark_results[benchmark_results['filename'] == filename]
 
-                for filter in file_benchmark_results['filter'].unique():
-                    df_filter = file_benchmark_results[file_benchmark_results['filter'] == filter]
+                for graph_type in GraphType:
+                    # Filter data by graph type
+                    type_results = file_benchmark_results[file_benchmark_results['filename'].str.contains(graph_type.value)]
 
-                    df_filter = df_filter.drop_duplicates(subset = ('noise_level', 'jaccard'))
+                    for weighted in [True, False]:
+                        weight_str = 'weighted' if weighted else 'unweighted'
+                        weight_results = type_results[type_results['weighted'] == weighted]
 
-                    plt.plot(df_filter['noise_level'], df_filter['jaccard'], label=f'{filter}')
+                        if weight_results.empty:
+                            continue
 
-                plt.title('Gráfico classe 1')
-                plt.xlabel('Noise level')
-                plt.ylabel('Jaccard score')
-                plt.legend()
-                plt.savefig(f'results/{filename}_{benchmark}.png')
-                plt.close('all')
-                bolo = plt.gcf
-                #clear the plt
+                        # Class 1: Noise level x Jaccard for each benchmark
+                        class_1_path = os.path.join(base_path, 'class_1', graph_type.value, benchmark, weight_str)
+                        os.makedirs(class_1_path, exist_ok=True)
+
+                        for filter in weight_results['filter'].unique():
+                            df_filter = weight_results[weight_results['filter'] == filter].drop_duplicates(subset=['noise_level', 'jaccard'])
+
+                            plt.plot(df_filter['noise_level'], df_filter['jaccard'], label=filter)
+
+                        plt.title(f'{benchmark} - Jaccard Score by Noise Level')
+                        plt.xlabel('Noise Level')
+                        plt.ylabel('Jaccard Score')
+                        plt.legend(loc='upper right', bbox_to_anchor=(1.1, 1))  # Adjust legend position
+                        plt.savefig(os.path.join(class_1_path, f'{filename}_{benchmark}_jaccard.png'))
+                        plt.close()
+
+                        # Class 2: Precision, Recall, and F1-score - Separate plots
+                        class_2_path = os.path.join(base_path, 'class_2', graph_type.value, benchmark, weight_str)
+                        os.makedirs(class_2_path, exist_ok=True)
+
+                        for metric in ['precision', 'recall', 'f1_score']:
+                            for filter in weight_results['filter'].unique():
+                                df_filter = weight_results[weight_results['filter'] == filter]
+                                plt.plot(df_filter['noise_level'], df_filter[metric], label=filter)
+
+                            plt.title(f'{benchmark} - {metric.capitalize()} by Noise Level')
+                            plt.xlabel('Noise Level')
+                            plt.ylabel(f'{metric.capitalize()} Score')
+                            plt.legend(loc='upper right', bbox_to_anchor=(1.1, 1))  # Adjust legend position
+                            plt.savefig(os.path.join(class_2_path, f'{filename}_{benchmark}_{metric}.png'))
+                            plt.close()
+
+                        # Class 4: Variation of metrics by percentage
+                        class_4_path = os.path.join(base_path, 'class_4', graph_type.value, benchmark, weight_str)
+                        os.makedirs(class_4_path, exist_ok=True)
+
+                        for metric_base in ['degree_assortativity', 'average_clustering', 'average_degree_connectivity', 'density']:
+                            plt.figure()
+                            
+                            for filter_type in weight_results['filter'].unique():
+                                filter_data = weight_results[weight_results['filter'] == filter_type]
+                                
+                                # Calculate percentage variation between original and filtered metrics for each filter
+                                original_metric = filter_data[f'{metric_base}_original']
+                                filtered_metric = filter_data[f'{metric_base}_filtered']
+                                percentage_variation = ((filtered_metric - original_metric) / original_metric) * 100
+                                
+                                # Plotting the percentage variation for the metric with each filter
+                                plt.plot(filter_data['noise_level'], percentage_variation, label=f'{filter_type}')
+                            
+                            # Set up titles and labels for the plot
+                            plt.title(f'{benchmark} - {metric_base} Variation by Percentage')
+                            plt.xlabel('Noise Level')
+                            plt.ylabel('Percentage Change')
+                            
+                            # Adjust legend position and save the plot
+                            plt.legend(loc='upper right', bbox_to_anchor=(1.1, 1))
+                            plt.savefig(os.path.join(class_4_path, f'{filename}_{benchmark}_{metric_base}_variation.png'))
+                            plt.close()
+
 
 if __name__ == '__main__':
     analysis = Analysis()
 
-    analysis.generate_results(True)
+    analysis.generate_graphics()
