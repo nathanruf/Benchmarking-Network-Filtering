@@ -146,11 +146,15 @@ class NetworkIndicators():
 
             # List of metric functions
             metric_funcs = [
-                nx.degree_assortativity_coefficient,
+                nx.degree,
                 nx.average_clustering,
                 nx.average_shortest_path_length,
+                nx.diameter,
+                nx.betweenness_centrality,
+                nx.closeness_centrality,
+                nx.global_efficiency,
+                nx.degree_assortativity_coefficient,
                 nx.density,
-                nx.average_degree_connectivity,
                 nx.transitivity
             ]
 
@@ -162,32 +166,48 @@ class NetworkIndicators():
                         continue
 
                     result = metric_func(G)
-                    # If the result is a dict (only for average_degree_connectivity), take its mean
+                    # If the result is a dict, take its mean
                     if isinstance(result, dict):
-                        result = sum(result.values()) / len(result) if result else None
+                        result = np.mean(list(result.values())) if result else None
                     metrics.append(result)
                 except Exception:
                     metrics.append(None)  # Append None if an exception occurs
+
+            degrees = [d for n, d in G.degree()]
+            metrics.append(np.var(degrees)) # Degree Variance
+            metrics.append(max(degrees)) # Maximum Degree
 
             return metrics
         
         # Names of the metrics
         filtered_metric_names = [
-            'degree_assortativity_filtered',
+            'average_degree_filtered',
             'average_clustering_filtered',
-            'average_shortest_path_length_filtered',
+            'average_path_length_filtered',
+            'diameter_filtered',
+            'average_betweenness_filtered',
+            'average_closeness_filtered',
+            'global_efficiency_filtered',
+            'degree_assortativity_filtered',
             'density_filtered',
-            'average_degree_connectivity_filtered',
-            'transitivity_filtered'
+            'transitivity_filtered',
+            'degree_variance_filtered',
+            'maximum_degree_filtered'
         ]
 
         original_metric_names = [
-            'degree_assortativity_original',
+            'average_degree_original',
             'average_clustering_original',
-            'average_shortest_path_length_original',
+            'average_path_length_original',
+            'diameter_original',
+            'average_betweenness_original',
+            'average_closeness_original',
+            'global_efficiency_original',
+            'degree_assortativity_original',
             'density_original',
-            'average_degree_connectivity_original',
-            'transitivity_original'
+            'transitivity_original',
+            'degree_variance_original',
+            'maximum_degree_original'
         ]
         
         # Dictionary to store the ratios
