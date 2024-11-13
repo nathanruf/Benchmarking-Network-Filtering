@@ -169,6 +169,9 @@ class NetworkIndicators():
                     # If the result is a dict, take its mean
                     if isinstance(result, dict):
                         result = np.mean(list(result.values())) if result else None
+                    elif metric_func == nx.degree:
+                        # Se for nx.degree, calcular a média dos graus
+                        result = np.mean([degree for _, degree in result])
                     metrics.append(result)
                 except Exception:
                     metrics.append(None)  # Append None if an exception occurs
