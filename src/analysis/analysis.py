@@ -29,7 +29,6 @@ class Analysis:
             try:
                 with open(filepath, 'rb') as f:
                     graphs = pickle.load(f)
-                    graphs['filename'] = graphs['filename'] + 'real_nets'
             except Exception as e:
                 print(f"Error loading graph from {filepath}: {e}")
 
@@ -369,12 +368,13 @@ class Analysis:
                                    'transitivity',
                                    'degree_variance',
                                    'maximum_degree']
+                        
                         for metric in metrics:
                             for filter in weight_results['filter'].unique():
                                 df_filter = weight_results[weight_results['filter'] == filter]
                                 plt.plot(df_filter['noise_level'], df_filter[f'{metric}_filtered'], label=filter)
 
-                            original_value = df_filter[f'{metric}_original'][0]
+                            original_value = df_filter[f'{metric}_original'].iloc[0]
 
                             plt.title(f'{metric.capitalize()} by Noise Level - {original_value} - {benchmark}')
                             plt.xlabel('Noise Level')
@@ -384,6 +384,6 @@ class Analysis:
                             plt.close()
 
 if __name__ == '__main__':
-    analisys = Analysis()
+    analysis = Analysis()
 
-    analisys.generate_graphics()
+    analysis.generate_graphics()
