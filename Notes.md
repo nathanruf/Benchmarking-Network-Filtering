@@ -9,7 +9,7 @@ classe 4 - variação das métricas acima pelo percentual - fazer boxplot de tod
 
 classe 5 - colocar o valor original no título e o gráfico com o filtrado de todas as métricas
 
-##Future todo
+## Future todo
 x10 size network
 
 ## Comparing Barabási-Albert (BA) and Watts-Strogatz (WS) networks
