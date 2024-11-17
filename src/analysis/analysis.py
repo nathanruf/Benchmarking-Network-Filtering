@@ -372,11 +372,17 @@ class Analysis:
                         for metric in metrics:
                             for filter in weight_results['filter'].unique():
                                 df_filter = weight_results[weight_results['filter'] == filter]
+
+                                df_filter = pd.concat([
+                                    pd.DataFrame({'noise_level': [0.0], 
+                                                f'{metric}_filtered': [df_filter[f'{metric}_original'].iloc[0]],
+                                                'filter': [filter]}),
+                                    df_filter
+                                ], ignore_index=True)
+                                
                                 plt.plot(df_filter['noise_level'], df_filter[f'{metric}_filtered'], label=filter)
 
-                            original_value = df_filter[f'{metric}_original'].iloc[0]
-
-                            plt.title(f'{metric.capitalize()} by Noise Level - {original_value} - {benchmark}')
+                            plt.title(f'{metric.capitalize()} by Noise Level - {benchmark}')
                             plt.xlabel('Noise Level')
                             plt.ylabel(f'{metric.capitalize()} Score')
                             plt.legend(loc='upper right', bbox_to_anchor=(1.1, 1))  # Adjust legend position
