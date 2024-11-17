@@ -1,3 +1,17 @@
+## Results classes:
+classe 1 - gráfico para cada benchmark - eixo x - noise level e eixo y jaccard para cada filtro - com redes de tamanho 1000 - 4 plots pra cada benchmark
+
+classe 2 - mesma coisa para precision, recall e f1_score
+
+classe 3 - assortativity, clustering, average degree, density - cosine distance
+
+classe 4 - variação das métricas acima pelo percentual - fazer boxplot de todos os tamanhos
+
+classe 5 - colocar o valor original no título e o gráfico com o filtrado de todas as métricas
+
+## Future todo
+x10 size network
+
 ## Comparing Barabási-Albert (BA) and Watts-Strogatz (WS) networks
 
 
