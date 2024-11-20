@@ -70,8 +70,8 @@ class Benchmark:
 
         return noisy_net
 
-    def bench_noise_filtering(self, input_net: nx.Graph, net_filter: callable, indicator_func: callable,
-                              noise_level: float = 0.25, seed: int = 42) -> float:
+    def bench_noise_filtering(self, input_net: nx.Graph, net_filter: callable, indicator_funcs: list[callable],
+                              noise_level: float = 0.25, seed: int = 42) -> list:
         """
         Measure ability of net_filter to reduce noise in input_net.
         Add noise to the network, apply the filter function, and calculates
@@ -85,7 +85,7 @@ class Benchmark:
             seed (int, optional): Random seed for reproducibility. Defaults to 42.
 
         Returns:
-            float: The Jaccard score between the edge sets of the filtered network and the input network.
+            list: The results of the indicator functions between the filtered network and the input network.
         """
         # Add noise to the network
         noisy_net = self.__add_noise_to_network(input_net, noise_level, seed)
@@ -93,11 +93,14 @@ class Benchmark:
         # Apply the filter function
         filtered_net = net_filter(noisy_net)
 
-        # Apply the indicator function between the original and filtered networks
-        return indicator_func(input_net, filtered_net)
+        # Apply the indicator functions between the original and filtered networks
+        results = []
+        for indicator_func in indicator_funcs:
+            results.append(indicator_func(input_net, filtered_net))
+        return results
 
-    def bench_structural_noise_filtering(self, input_net: nx.Graph, net_filter: callable, indicator_func: callable,
-                                          noise_level: float = 0.25, seed: int = 42) -> float:
+    def bench_structural_noise_filtering(self, input_net: nx.Graph, net_filter: callable, indicator_funcs: list[callable],
+                                          noise_level: float = 0.25, seed: int = 42) -> list:
         """
         Measure the ability of net_filter to reduce noise after an initial structural filtering.
         First, apply the filter to the input network to obtain the structural network, then add noise to it.
@@ -112,7 +115,7 @@ class Benchmark:
             seed (int, optional): Random seed for reproducibility. Defaults to 42.
 
         Returns:
-            float: The Jaccard score between the edge sets of the filtered network and the input network.
+            list: The results of the indicator functions between the filtered network and the input network.
         """
         # Apply the filter to get the base structural network
         structural_net = net_filter(input_net)
@@ -123,10 +126,13 @@ class Benchmark:
         # Apply the filter function
         filtered_net = net_filter(noisy_net)
 
-        # Apply the indicator function between the original and filtered networks
-        return indicator_func(structural_net, filtered_net)
+        # Apply the indicator functions between the original and filtered networks
+        results = []
+        for indicator_func in indicator_funcs:
+            results.append(indicator_func(structural_net, filtered_net))
+        return results
     
-    def bench_net2net_filtering(self, input_net: nx.Graph, net_filter: callable, indicator_func: callable) -> float:
+    def bench_net2net_filtering(self, input_net: nx.Graph, net_filter: callable, indicator_funcs: list[callable]) -> list:
         """
         Apply a network filter to the input network and calculate a network2network indicator.
         This function applies the given network filter to the input network,
@@ -136,10 +142,12 @@ class Benchmark:
             net_filter (callable): The network filter function to be applied.
             indicator_func (callable): The indicator function from networkIndicators.py to be used.
         Returns:
-            float: The result of the indicator function applied to the original and filtered networks.
+            list: The results of the indicator functions between the filtered network and the input network.
         """
         # Apply the filter function to generate the filtered network
         filtered_net = net_filter(input_net)
-        # Apply the indicator function between the original and filtered networks
-        indicator_result = indicator_func(input_net, filtered_net)
-        return indicator_result
+        # Apply the indicator functions between the original and filtered networks
+        results = []
+        for indicator_func in indicator_funcs:
+            results.append(indicator_func(input_net, filtered_net))
+        return results
