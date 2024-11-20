@@ -3,6 +3,7 @@ import numpy as np
 import random
 import scipy
 import heapq
+import heapdict
 from itertools import combinations
 
 """
@@ -35,6 +36,45 @@ class Filter:
         Returns:
             nx.Graph: Minimum Spanning Tree
         """
+
+        def find(p: int, id: dict) -> int:
+            """
+            Helper method for the MST algorithm (Union-Find).
+
+            Args:
+                p (int): Node index
+                id (dict): Dictionary of node identifiers
+
+            Returns:
+                int: Root node identifier
+            """
+            if id[p] == p:
+                return p
+            id[p] = self.__find(id[p], id)
+            return id[p]
+        
+        def union(p: int, q: int, sz: dict, id: dict) -> None:
+            """
+            Helper method for the MST algorithm (Union-Find).
+
+            Args:
+                p (int): First node index
+                q (int): Second node index
+                sz (dict): Dictionary of set sizes
+                id (dict): Dictionary of node identifiers
+            """
+            p = self.__find(p, id)
+            q = self.__find(q, id)
+
+            if p == q:
+                return
+
+            if sz[p] > sz[q]:
+                p, q = q, p
+
+            id[p] = q
+            sz[q] += sz[p]
+
         filteredGraph = nx.Graph()
         id = {node: node for node in graph.nodes}
         sz = {node: 1 for node in graph.nodes}
@@ -42,9 +82,9 @@ class Filter:
         sortedEdges = sorted(graph.edges(data=True), key=lambda x: x[2]['weight'])
 
         for edge in sortedEdges:
-            if self.__find(edge[0], id) == self.__find(edge[1], id):
+            if find(edge[0], id) == find(edge[1], id):
                 continue
-            self.__union(edge[0], edge[1], sz, id)
+            union(edge[0], edge[1], sz, id)
             filteredGraph.add_edge(edge[0], edge[1], weight=edge[2]['weight'])
 
         return filteredGraph
@@ -73,6 +113,77 @@ class Filter:
                 break
 
         return filteredGraph
+    
+    def tmfg(self, original_graph: nx.Graph) -> nx.Graph:
+        def initial_tetrahedron(graph: nx.Graph) -> tuple:
+            max_score = -1
+            best_tetrahedron = None
+            for tetrahedron in combinations(graph.nodes(), 4):
+                score = 0
+                for edge in combinations(tetrahedron, 2):
+                    score += graph.get_edge_data(edge[0], edge[1], default = {'weight':0})['weight']
+                if score > max_score:
+                    max_score = score
+                    best_tetrahedron = tetrahedron
+            return best_tetrahedron
+
+        def update_best_tetrahedron(best_tetrahedron:heapdict, original_graph:nx.Graph, v:list, original_face:list, new_vertex:int, score:float) -> None:
+            updated_face = list(original_face)
+            updated_face.append(new_vertex)
+            tetrahedron = set(updated_face)
+
+            for face in combinations(tetrahedron, 3):
+                if new_vertex not in face:
+                    continue
+                for vertex in v:
+                    key = list(face)
+                    key.insert(0, vertex)
+
+                    new_score = score
+                    for node in face:
+                        
+                        new_score += original_graph.get_edge_data(node, vertex, default = {'weight':0})['weight']
+
+                    best_tetrahedron[tuple(key)] = -new_score
+
+        def get_best_tetrahedron(best_tetrahedron:heapdict) -> tuple[list, int, float]:
+            tetrahedron, score = best_tetrahedron.peekitem()
+            new_vertex, *face = tetrahedron
+            
+            combinations_to_remove = [key for key in best_tetrahedron.keys() if new_vertex in key or all(v in key for v in face)]
+            for combination in combinations_to_remove:
+                del best_tetrahedron[combination]
+
+            return face, new_vertex, -score
+
+        def update_filtered_graph(original_graph:nx.Graph, filtered_graph:nx.Graph, face:list, new_vertex:int) -> None:
+            for node in face:
+                data = original_graph.get_edge_data(node, new_vertex, default = {'weight':0})['weight']
+                filtered_graph.add_edge(node, new_vertex, weight = data)
+
+        c1 = initial_tetrahedron(original_graph)
+        
+        filtered_graph = nx.Graph()
+        filtered_graph.add_nodes_from(original_graph.nodes())
+
+        v = [node for node in original_graph.nodes() if node not in c1]
+        best_tetrahedron = heapdict.heapdict()
+
+        for face in combinations(c1, 3):
+            score = 0
+            for edge in combinations(face, 2):
+                data = original_graph.get_edge_data(edge[0], edge[1], default = {'weight':0})['weight']
+                score += data
+                filtered_graph.add_edge(edge[0], edge[1], weight = data)
+            update_best_tetrahedron(best_tetrahedron, original_graph, v, face, face[0], score)
+
+        while len(v) != 0:
+            face, new_vertex, score = get_best_tetrahedron(best_tetrahedron)
+            v.remove(new_vertex)
+            update_best_tetrahedron(best_tetrahedron, original_graph, v, face, new_vertex, score)
+            update_filtered_graph(original_graph, filtered_graph, face, new_vertex)
+
+        return filtered_graph
 
     def threshold(self, graph: nx.Graph, threshold: float) -> nx.Graph:
         """
@@ -93,44 +204,6 @@ class Filter:
                 filteredGraph.add_edge(u, v, weight=edge['weight'])
 
         return filteredGraph
-    
-    def __find(self, p: int, id: dict) -> int:
-        """
-        Helper method for the MST algorithm (Union-Find).
-
-        Args:
-            p (int): Node index
-            id (dict): Dictionary of node identifiers
-
-        Returns:
-            int: Root node identifier
-        """
-        if id[p] == p:
-            return p
-        id[p] = self.__find(id[p], id)
-        return id[p]
-    
-    def __union(self, p: int, q: int, sz: dict, id: dict) -> None:
-        """
-        Helper method for the MST algorithm (Union-Find).
-
-        Args:
-            p (int): First node index
-            q (int): Second node index
-            sz (dict): Dictionary of set sizes
-            id (dict): Dictionary of node identifiers
-        """
-        p = self.__find(p, id)
-        q = self.__find(q, id)
-
-        if p == q:
-            return
-
-        if sz[p] > sz[q]:
-            p, q = q, p
-
-        id[p] = q
-        sz[q] += sz[p]
     
     def local_degree_sparsifier(self, G: nx.Graph, target_ratio: float) -> nx.Graph:
         """
@@ -290,5 +363,6 @@ class Filter:
             k = max(core_numbers.values())
 
         H = G.subgraph([n for n, cn in core_numbers.items() if cn >= k])
+        H.add_nodes_from(G.nodes())
 
         return H
