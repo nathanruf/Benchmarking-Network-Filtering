@@ -96,8 +96,7 @@ class Analysis:
                 netIndicators_instance.predictive_filtering_metrics
             ]
 
-            row['information_retention'], row['jaccard'],
-            common_metrics, predictive_filtering_metrics = benchmark(graph, filter, indicator_functions)
+            row['information_retention'], row['jaccard'], common_metrics, predictive_filtering_metrics = benchmark(graph, filter, indicator_functions)
 
             for key, value in common_metrics.items():
                 row[key] = value
