@@ -89,14 +89,18 @@ class Analysis:
             if benchmark_func.__name__ in noisy_benchmark_funcs:
                 benchmark = lambda G, F, I: benchmark_func(G, F, I, noise_level = noise)
 
-            row['information_retention'] = benchmark(graph, filter, netIndicators_instance.calculate_information_retention)
-            row['jaccard'] = benchmark(graph, filter, netIndicators_instance.calculate_jaccard_similarity)
-            common_metrics = benchmark(graph, filter, netIndicators_instance.common_metrics)
+            indicator_functions = [
+                netIndicators_instance.calculate_information_retention,
+                netIndicators_instance.calculate_jaccard_similarity,
+                netIndicators_instance.common_metrics,
+                netIndicators_instance.predictive_filtering_metrics
+            ]
+
+            row['information_retention'], row['jaccard'],
+            common_metrics, predictive_filtering_metrics = benchmark(graph, filter, indicator_functions)
 
             for key, value in common_metrics.items():
                 row[key] = value
-
-            predictive_filtering_metrics = benchmark(graph, filter, netIndicators_instance.predictive_filtering_metrics)
 
             for key, value in predictive_filtering_metrics.items():
                 row[key] = value
@@ -118,6 +122,7 @@ class Analysis:
             filter_instance.mst,
             # PMFG method is taking too long, consider optimizing or commenting it out for now
             #filter_instance.pmfg,
+            filter_instance.tmfg,
             filter_instance.threshold,
             filter_instance.local_degree_sparsifier,
             filter_instance.random_edge_sparsifier,
@@ -152,7 +157,7 @@ class Analysis:
         combinations = list(itertools.product(networks, filtering_funcs, benchmark_funcs, noise_levels))
         
         # Filtering invalid combinations
-        filters_that_require_weights = [filter_instance.mst, filter_instance.threshold]
+        filters_that_require_weights = [filter_instance.mst, filter_instance.tmfg, filter_instance.threshold]
 
         # If the benchmark function is 'bench_net2net_filtering', noise_level must be None
         # For other benchmark functions, noise_level must not be None
@@ -308,10 +313,15 @@ class Analysis:
                         class_3_path = os.path.join(base_path, 'class_3', graph_type.value, benchmark, weight_str)
                         os.makedirs(class_3_path, exist_ok=True)
 
-                        original_metrics = ['degree_assortativity_original', 'average_clustering_original', 
-                                            'average_degree_original', 'density_original']
-                        filtered_metrics = ['degree_assortativity_filtered', 'average_clustering_filtered',
-                                             'average_degree_filtered', 'density_filtered']
+                        original_metrics = ['average_degree_original', 'average_clustering_original', 'average_path_length_original',
+                                            'diameter_original', 'average_betweenness_original', 'average_closeness_original',
+                                            'global_efficiency_original', 'degree_assortativity_original', 'density_original',
+                                            'transitivity_original', 'degree_variance_original', 'maximum_degree_original']
+                        filtered_metrics = ['average_degree_filtered', 'average_clustering_filtered', 'average_path_length_filtered',
+                                            'diameter_filtered', 'average_betweenness_filtered', 'average_closeness_filtered',
+                                            'global_efficiency_filtered', 'degree_assortativity_filtered', 'density_filtered',
+                                            'transitivity_filtered', 'degree_variance_filtered', 'maximum_degree_filtered']
+                        
                         for filter in weight_results['filter'].unique():
                             df_filter = weight_results[weight_results['filter'] == filter]
                             cosine_distance = df_filter.apply(lambda row : cosine(row[original_metrics], row[filtered_metrics]), axis = 1)
@@ -328,7 +338,12 @@ class Analysis:
                         class_4_path = os.path.join(base_path, 'class_4', graph_type.value, benchmark, weight_str)
                         os.makedirs(class_4_path, exist_ok=True)
 
-                        for metric_base in ['degree_assortativity', 'average_clustering', 'average_degree', 'density']:
+                        metrics = ['average_degree', 'average_clustering', 'average_path_length',
+                                    'diameter', 'average_betweenness', 'average_closeness',
+                                    'global_efficiency', 'degree_assortativity', 'density',
+                                    'transitivity', 'degree_variance', 'maximum_degree']
+
+                        for metric_base in metrics:
                             plt.figure()
                             
                             for filter_type in weight_results['filter'].unique():
@@ -392,4 +407,4 @@ class Analysis:
 if __name__ == '__main__':
     analysis = Analysis()
 
-    analysis.generate_graphics()
+    analysis.generate_results(False)
