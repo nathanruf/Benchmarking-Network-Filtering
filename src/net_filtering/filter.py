@@ -50,7 +50,7 @@ class Filter:
             """
             if id[p] == p:
                 return p
-            id[p] = self.__find(id[p], id)
+            id[p] = find(id[p], id)
             return id[p]
         
         def union(p: int, q: int, sz: dict, id: dict) -> None:
@@ -63,8 +63,8 @@ class Filter:
                 sz (dict): Dictionary of set sizes
                 id (dict): Dictionary of node identifiers
             """
-            p = self.__find(p, id)
-            q = self.__find(q, id)
+            p = find(p, id)
+            q = find(q, id)
 
             if p == q:
                 return
