@@ -366,6 +366,10 @@ class Filter:
             k = max(core_numbers.values())
 
         H = G.subgraph([n for n, cn in core_numbers.items() if cn >= k])
-        H.add_nodes_from(G.nodes())
+        
+        filtered_graph = nx.Graph()
 
-        return H
+        filtered_graph.add_nodes_from(G)
+        filtered_graph.add_edges_from(H.edges(data=True))
+
+        return filtered_graph
