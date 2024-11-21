@@ -199,25 +199,26 @@ def main(override=False):
 		override (bool): Whether to override existing files. Default is False.
 	"""
 
-	for n in range(100, 1100, 100):
-		rows = int(math.sqrt(n))
-		columns = n // rows
+	for i in range(0, 100):
+		for n in range(100, 1100, 100):
+			rows = int(math.sqrt(n))
+			columns = n // rows
 
-		# Generate and save example graphs
-		generate_and_save_graph(generate_random_graph, GraphType.RANDOM, f'random_graph{n}.pickle', override, n=n, p=0.1, weighted=True)
-		generate_and_save_graph(generate_grid_graph, GraphType.GRID, f'grid_graph{n}.pickle', override, m=rows, n=columns, periodic=True, weighted=True)
-		generate_and_save_graph(generate_barabasi_albert_graph, GraphType.BARABASI_ALBERT, f'barabasi_albert_graph{n}.pickle', override, n=n, m=2, weighted=True)
-		#lfr_benchmark_graph is generating an error
-		#generate_and_save_graph(generate_lfr_benchmark_graph, GraphType.LFR_BENCHMARK, f'lfr_benchmark_graph{n}.pickle', override, n=n, tau1=2.5, tau2=1.5, mu=0.1, weighted=True)
-		generate_and_save_graph(generate_watts_strogatz_graph, GraphType.WATTS_STROGATZ, f'watts_strogatz_graph{n}.pickle', override, n=n, k=4, p=0.1, weighted=True)
+			# Generate and save example graphs
+			generate_and_save_graph(generate_random_graph, GraphType.RANDOM, f'{i}random_graph{n}.pickle', override, n=n, p=0.1, weighted=True)
+			generate_and_save_graph(generate_grid_graph, GraphType.GRID, f'{i}grid_graph{n}.pickle', override, m=rows, n=columns, periodic=True, weighted=True)
+			generate_and_save_graph(generate_barabasi_albert_graph, GraphType.BARABASI_ALBERT, f'{i}barabasi_albert_graph{n}.pickle', override, n=n, m=2, weighted=True)
+			#lfr_benchmark_graph is generating an error
+			#generate_and_save_graph(generate_lfr_benchmark_graph, GraphType.LFR_BENCHMARK, f'{i}lfr_benchmark_graph{n}.pickle', override, n=n, tau1=2.5, tau2=1.5, mu=0.1, weighted=True)
+			generate_and_save_graph(generate_watts_strogatz_graph, GraphType.WATTS_STROGATZ, f'{i}watts_strogatz_graph{n}.pickle', override, n=n, k=4, p=0.1, weighted=True)
 
-		# Generate unweighted versions for comparison
-		generate_and_save_graph(generate_random_graph, GraphType.RANDOM, f'random_graph{n}.pickle', override, n=n, p=0.1, weighted=False)
-		generate_and_save_graph(generate_grid_graph, GraphType.GRID, f'grid_graph{n}.pickle', override, m=rows, n=columns, periodic=True, weighted=False)
-		generate_and_save_graph(generate_barabasi_albert_graph, GraphType.BARABASI_ALBERT, f'barabasi_albert_graph{n}.pickle', override, n=n, m=2, weighted=False)
-		#lfr_benchmark_graph is generating an error
-		#generate_and_save_graph(generate_lfr_benchmark_graph, GraphType.LFR_BENCHMARK, f'lfr_benchmark_graph{n}.pickle', override, n=n, tau1=2.5, tau2=1.5, mu=0.1, weighted=False)
-		generate_and_save_graph(generate_watts_strogatz_graph, GraphType.WATTS_STROGATZ, f'watts_strogatz_graph{n}.pickle', override, n=n, k=4, p=0.1, weighted=False)
+			# Generate unweighted versions for comparison
+			generate_and_save_graph(generate_random_graph, GraphType.RANDOM, f'{i}random_graph{n}.pickle', override, n=n, p=0.1, weighted=False)
+			generate_and_save_graph(generate_grid_graph, GraphType.GRID, f'{i}grid_graph{n}.pickle', override, m=rows, n=columns, periodic=True, weighted=False)
+			generate_and_save_graph(generate_barabasi_albert_graph, GraphType.BARABASI_ALBERT, f'{i}barabasi_albert_graph{n}.pickle', override, n=n, m=2, weighted=False)
+			#lfr_benchmark_graph is generating an error
+			#generate_and_save_graph(generate_lfr_benchmark_graph, GraphType.LFR_BENCHMARK, f'{i}lfr_benchmark_graph{n}.pickle', override, n=n, tau1=2.5, tau2=1.5, mu=0.1, weighted=False)
+			generate_and_save_graph(generate_watts_strogatz_graph, GraphType.WATTS_STROGATZ, f'{i}watts_strogatz_graph{n}.pickle', override, n=n, k=4, p=0.1, weighted=False)
 
 if __name__ == "__main__":
 	import argparse
