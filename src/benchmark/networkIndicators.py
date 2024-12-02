@@ -13,6 +13,7 @@ Functions:
 import networkx as nx
 import numpy as np
 import warnings
+import time
 from sklearn.metrics import f1_score, recall_score, precision_score, confusion_matrix, root_mean_squared_error
 from typing import Union, List
 from scipy.stats import entropy
@@ -150,7 +151,7 @@ class NetworkIndicators():
                 nx.average_clustering,
                 nx.average_shortest_path_length,
                 nx.diameter,
-                nx.betweenness_centrality,
+                #nx.betweenness_centrality,
                 nx.closeness_centrality,
                 nx.global_efficiency,
                 nx.degree_assortativity_coefficient,
@@ -164,7 +165,6 @@ class NetworkIndicators():
                     if G.number_of_edges() == 0:
                         metrics.append(None)  # Return None if the graph has no edges
                         continue
-
                     result = metric_func(G)
                     # If the result is a dict, take its mean
                     if isinstance(result, dict):
@@ -188,7 +188,7 @@ class NetworkIndicators():
             'average_clustering_filtered',
             'average_path_length_filtered',
             'diameter_filtered',
-            'average_betweenness_filtered',
+            #'average_betweenness_filtered',
             'average_closeness_filtered',
             'global_efficiency_filtered',
             'degree_assortativity_filtered',
@@ -203,7 +203,7 @@ class NetworkIndicators():
             'average_clustering_original',
             'average_path_length_original',
             'diameter_original',
-            'average_betweenness_original',
+            #'average_betweenness_original',
             'average_closeness_original',
             'global_efficiency_original',
             'degree_assortativity_original',
