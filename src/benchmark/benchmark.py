@@ -131,23 +131,3 @@ class Benchmark:
         for indicator_func in indicator_funcs:
             results.append(indicator_func(structural_net, filtered_net))
         return results
-    
-    def bench_net2net_filtering(self, input_net: nx.Graph, net_filter: callable, indicator_funcs: list[callable]) -> list:
-        """
-        Apply a network filter to the input network and calculate a network2network indicator.
-        This function applies the given network filter to the input network,
-        then calculates a net2net indicator from networkIndicators.py between the original and filtered networks.
-        Args:
-            input_net (nx.Graph): The original input network.
-            net_filter (callable): The network filter function to be applied.
-            indicator_func (callable): The indicator function from networkIndicators.py to be used.
-        Returns:
-            list: The results of the indicator functions between the filtered network and the input network.
-        """
-        # Apply the filter function to generate the filtered network
-        filtered_net = net_filter(input_net)
-        # Apply the indicator functions between the original and filtered networks
-        results = []
-        for indicator_func in indicator_funcs:
-            results.append(indicator_func(input_net, filtered_net))
-        return results
