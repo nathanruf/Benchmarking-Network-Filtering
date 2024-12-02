@@ -2,9 +2,9 @@ import networkx as nx
 import numpy as np
 import random
 import scipy
-import heapq
 import heapdict
 from itertools import combinations
+from sklearn.cluster import KMeans
 
 """
 This class implements network filtering and graph sparsification techniques.
@@ -371,5 +371,66 @@ class Filter:
 
         filtered_graph.add_nodes_from(G)
         filtered_graph.add_edges_from(H.edges(data=True))
+
+        return filtered_graph
+    
+    def coarse_graining_espectral(self, G: nx.Graph) -> nx.Graph:
+        # Compute the Laplacian matrix
+        laplacian = nx.laplacian_matrix(G).toarray()
+
+        # Compute eigenvalues and eigenvectors
+        eigenvalues, eigenvectors = np.linalg.eigh(laplacian)
+
+        # Identify the spectral gap
+        gaps = np.diff(eigenvalues)
+        biggest_gap = np.argmax(gaps)  # Largest spectral gap
+
+        # Define the number of groups based on the spectral gap
+        n_groups = biggest_gap + 1
+        embedding = eigenvectors[:, :n_groups]  # Embedding based on the first eigenvectors
+
+        # KMeans clustering to group nodes
+        kmeans = KMeans(n_clusters=n_groups, random_state=0)
+        clusters = kmeans.fit_predict(embedding)
+
+        # Group nodes into super-nodes
+        super_nodes = {}
+        for node, group in enumerate(clusters):
+            if group not in super_nodes:
+                super_nodes[group] = []
+            super_nodes[group].append(node)
+
+        # Create the renormalized graph
+        G_coarse = nx.Graph()
+
+        # Add super-nodes to the renormalized graph
+        for group, nodes in super_nodes.items():
+            G_coarse.add_node(group, original_nodes=nodes)
+
+        # Add edges between super-nodes
+        for u, v in G.edges():
+            group_u = clusters[u]
+            group_v = clusters[v]
+            if group_u != group_v:
+                if G_coarse.has_edge(group_u, group_v):
+                    G_coarse[group_u][group_v]['weight'] += 1
+                else:
+                    G_coarse.add_edge(group_u, group_v, weight=1)
+
+        # Rescale the adjacency matrix
+        lambda_k = eigenvalues[biggest_gap]  # λk value
+        adjacency_matrix = nx.adjacency_matrix(G_coarse).toarray()
+        rescaled_matrix = (1 / lambda_k) * adjacency_matrix
+
+        # Compute the renormalization error
+        renormalization_error = np.linalg.norm(adjacency_matrix - rescaled_matrix)
+
+        # Adjust weights based on the renormalization error
+        for u, v, data in G_coarse.edges(data=True):
+            data['weight'] = data['weight'] / (1 + renormalization_error)
+
+        filtered_graph = nx.Graph()
+        filtered_graph.add_nodes_from(G.nodes())
+        filtered_graph.add_edges_from(G_coarse.edges())
 
         return filtered_graph
