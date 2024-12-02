@@ -15,14 +15,14 @@ x10 size network
 ## Comparing Barabási-Albert (BA) and Watts-Strogatz (WS) networks
 
 
-### Degree-Related Metrics:
+### Degree-Related Metrics*:
 
 BA Networks: High variance in degree distribution, power-law scaling
 WS Networks: Low variance, more uniform degree distribution
 Measurable through: degree distribution, variance, maximum degree
 
 
-### Clustering Properties:
+### Clustering Properties*:
 
 BA Networks: Low clustering (0.02-0.15)
 WS Networks: High clustering (0.3-0.6)
@@ -36,21 +36,21 @@ WS Networks: Slightly longer paths (4-6 steps)
 Measurable through: average path length, diameter
 
 
-### Centrality Measures:
+### Centrality Measures*:
 
 BA Networks: Higher betweenness centrality variance (hub effect)
 WS Networks: More uniform betweenness distribution
-Measurable through: betweenness centrality, closeness centrality
+Measurable through: betweenness centrality, closeness centrality*
 
 
-### Network Efficiency:
+### Network Efficiency?:
 
 BA Networks: Higher global efficiency (0.25-0.35)
 WS Networks: Lower global efficiency (0.15-0.25)
 Measurable through: global efficiency metric
 
 
-### Structural Properties:
+### Structural Properties*:
 
 BA Networks: Negative or neutral assortativity
 WS Networks: Slightly positive assortativity
@@ -115,15 +115,15 @@ metrics = compare_network_metrics()
 Metric Ranges (n=1000 nodes):
 
 BA Networks:
-- Average Degree: 4-8
-- Clustering Coefficient: 0.02-0.15
-- Average Path Length: 3-4
-- Diameter: 6-8
-- Degree Variance: High (100-1000)
-- Maximum Degree: High (50-100)
-- Betweenness Centrality: 0.02-0.05
-- Global Efficiency: 0.25-0.35
-- Degree Assortativity: -0.1 to 0.1
+- Average Degree*: 4-8
+- Clustering Coefficient*: 0.02-0.15
+- Average Path Length?: 3-4
+- Diameter?: 6-8
+- Degree Variance*: High (100-1000)
+- Maximum Degree*: High (50-100)
+- Betweenness Centrality? closeness: 0.02-0.05
+- Global Efficiency?: 0.25-0.35
+- Degree Assortativity*: -0.1 to 0.1
 
 WS Networks:
 - Average Degree: 4-8
