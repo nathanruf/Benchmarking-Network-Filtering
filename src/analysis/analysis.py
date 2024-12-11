@@ -224,7 +224,7 @@ class Analysis:
             WATTS_STROGATZ = 'watts_strogatz'
             BIOLOGICAL = 'Biological'
             ECONOMIC = 'Economic'
-            INFORMATION = 'Information'
+            INFORMATION = 'Informational'
             SOCIAL = 'Social'
             TECHNOLOGICAL = 'Technological'
             TRANSPORTATION = 'Transportation'
@@ -243,45 +243,51 @@ class Analysis:
                     os.makedirs(graph_path, exist_ok=True)
 
                     for benchmark in benchmarks:
-                        if benchmark == 'bench_net2net_filtering':
-                            continue
                         benchmark_path = os.path.join(graph_path, benchmark)
                         os.makedirs(os.path.join(benchmark_path, 'weighted'), exist_ok=True)
                         os.makedirs(os.path.join(benchmark_path, 'unweighted'), exist_ok=True)
 
-        df = pd.read_csv('results/resultsMean.csv')
+        df_mean = pd.read_csv('results/resultsMean.csv')
+        df_std = pd.read_csv('results/resultsStd.csv')
 
-        benchmarks = df['benchmark'].unique()
+        benchmarks = df_mean['benchmark'].unique()
 
         base_path = 'results/graphics'
 
         create_directories(base_path, benchmarks)
 
         for benchmark in benchmarks:
-            if benchmark == 'bench_net2net_filtering':
-                continue
-
-            benchmark_results = df[df['benchmark'] == benchmark]
+            benchmark_results_mean = df_mean[df_mean['benchmark'] == benchmark]
+            benchmark_results_std = df_std[df_std['benchmark'] == benchmark]
 
             for graph_type in GraphType:
                 # Filter data by graph type
-                type_results = benchmark_results[benchmark_results['class'] == graph_type.value]
+                type_results_mean = benchmark_results_mean[benchmark_results_mean['class'] == graph_type.value]
+                type_results_std = benchmark_results_std[benchmark_results_std['class'] == graph_type.value]
 
                 for weighted in [True, False]:
                     weight_str = 'weighted' if weighted else 'unweighted'
-                    weight_results = type_results[type_results['weighted'] == weighted]
+                    weight_results_mean = type_results_mean[type_results_mean['weighted'] == weighted]
+                    weight_results_std = type_results_std[type_results_std['weighted'] == weighted]
 
-                    if weight_results.empty:
+                    if weight_results_mean.empty and weight_results_std.empty:
                         continue
 
                     # Class 1: Noise level x Jaccard for each benchmark
                     class_1_path = os.path.join(base_path, 'class_1', graph_type.value, benchmark, weight_str)
                     os.makedirs(class_1_path, exist_ok=True)
 
-                    for filter in weight_results['filter'].unique():
-                        df_filter = weight_results[weight_results['filter'] == filter].drop_duplicates(subset=['noise_level', 'jaccard'])
+                    for filter in weight_results_mean['filter'].unique():
+                        df_filter_mean = weight_results_mean[weight_results_mean['filter'] == filter].drop_duplicates(subset=['noise_level', 'jaccard'])
+                        df_filter_std = weight_results_std[weight_results_std['filter'] == filter].drop_duplicates(subset=['noise_level', 'jaccard'])
 
-                        plt.plot(df_filter['noise_level'], df_filter['jaccard'], label=filter)
+                        plt.errorbar(
+                            df_filter_mean['noise_level'],  # x
+                            df_filter_mean['jaccard'],  # y
+                            yerr=df_filter_std['jaccard'],  # Erro (desvio padrão)
+                            fmt='-o',  # Formato dos pontos
+                            label=f'{filter}'
+                        )
 
                     plt.title(f'Jaccard Score by Noise Level - {benchmark}')
                     plt.xlabel('Noise Level')
@@ -295,9 +301,17 @@ class Analysis:
                     os.makedirs(class_2_path, exist_ok=True)
 
                     for metric in ['precision', 'recall', 'f1_score']:
-                        for filter in weight_results['filter'].unique():
-                            df_filter = weight_results[weight_results['filter'] == filter]
-                            plt.plot(df_filter['noise_level'], df_filter[metric], label=filter)
+                        for filter in weight_results_mean['filter'].unique():
+                            df_filter_mean = weight_results_mean[weight_results_mean['filter'] == filter]
+                            df_filter_std = weight_results_std[weight_results_std['filter'] == filter]
+
+                            plt.errorbar(
+                                df_filter_mean['noise_level'],  # x
+                                df_filter_mean[metric],  # y
+                                yerr=df_filter_std[metric],  # Erro (desvio padrão)
+                                fmt='-o',  # Formato dos pontos
+                                label=f'{filter}'
+                            )
 
                         plt.title(f'{metric.capitalize()} by Noise Level - {benchmark}')
                         plt.xlabel('Noise Level')
@@ -310,20 +324,50 @@ class Analysis:
                     class_3_path = os.path.join(base_path, 'class_3', graph_type.value, benchmark, weight_str)
                     os.makedirs(class_3_path, exist_ok=True)
 
-                    original_metrics = ['average_degree_original', 'average_clustering_original', 'average_path_length_original',
-                                        'diameter_original', 'average_closeness_original',
+                    original_metrics = ['average_degree_original', 'average_clustering_original', 'average_closeness_original',
                                         'global_efficiency_original', 'degree_assortativity_original', 'density_original',
                                         'transitivity_original', 'degree_variance_original', 'maximum_degree_original']
-                    filtered_metrics = ['average_degree_filtered', 'average_clustering_filtered', 'average_path_length_filtered',
-                                        'diameter_filtered', 'average_closeness_filtered',
+                    filtered_metrics = ['average_degree_filtered', 'average_clustering_filtered', 'average_closeness_filtered',
                                         'global_efficiency_filtered', 'degree_assortativity_filtered', 'density_filtered',
                                         'transitivity_filtered', 'degree_variance_filtered', 'maximum_degree_filtered']
                     
-                    for filter in weight_results['filter'].unique():
-                        df_filter = weight_results[weight_results['filter'] == filter]
-                        cosine_distance = df_filter.apply(lambda row : cosine(row[original_metrics], row[filtered_metrics]), axis = 1)
-                        plt.plot(df_filter['noise_level'], cosine_distance, label=filter)
+                    for filter in weight_results_mean['filter'].unique():
+                        df_filter_mean = weight_results_mean[weight_results_mean['filter'] == filter]
+                        df_filter_std = weight_results_std[weight_results_std['filter'] == filter]
 
+                        original_metrics_std = df_filter_std[original_metrics]
+                        filtered_metrics_std = df_filter_std[filtered_metrics]
+
+                        partial_derivate_original_mean = df_filter_mean.apply(lambda row: (np.dot(row[filtered_metrics], np.linalg.norm(row[original_metrics])) -
+                                                np.dot(row[original_metrics] ,(np.dot(row[original_metrics], row[filtered_metrics]) / np.linalg.norm(row[original_metrics])))
+                                                ) / np.dot( (np.linalg.norm(row[original_metrics]) ** 2), np.linalg.norm(row[filtered_metrics]))
+                                                , axis = 1)
+                        
+                        partial_derivate_filtered_mean = df_filter_mean.apply(lambda row: (np.dot(row[original_metrics], np.linalg.norm(row[filtered_metrics])) -
+                                                np.dot(row[filtered_metrics] ,(np.dot(row[filtered_metrics], row[original_metrics]) / np.linalg.norm(row[filtered_metrics])))
+                                                ) / np.dot( (np.linalg.norm(row[filtered_metrics]) ** 2), np.linalg.norm(row[original_metrics]))
+                                                , axis = 1)
+                        
+                        cosine_distance_mean = df_filter_mean.apply(lambda row: cosine(row[original_metrics], row[filtered_metrics]), axis = 1)
+
+                        cosine_distance_std = []
+
+                        for key, row_original_std in original_metrics_std.iterrows():
+                            cosine_distance_std.append(
+                                np.sqrt(
+                                (np.dot(partial_derivate_original_mean[key], row_original_std) ** 2) + 
+                                (np.dot(partial_derivate_filtered_mean[key], filtered_metrics_std.loc[key]) ** 2)
+                            )
+                            )
+
+                        plt.errorbar(
+                            df_filter_mean['noise_level'],  # x
+                            cosine_distance_mean,  # y
+                            yerr=cosine_distance_std,  # Erro (desvio padrão)
+                            fmt='-o',  # Formato dos pontos
+                            label=f'{filter}'
+                        )
+                        
                     plt.title(f'Cosine distance by Noise Level - {benchmark}')
                     plt.xlabel('Noise Level')
                     plt.ylabel(f'{metric.capitalize()} Score')
@@ -343,16 +387,30 @@ class Analysis:
                     for metric_base in metrics:
                         plt.figure()
                         
-                        for filter_type in weight_results['filter'].unique():
-                            filter_data = weight_results[weight_results['filter'] == filter_type]
+                        for filter in weight_results_mean['filter'].unique():
+                            filter_data_mean = weight_results_mean[weight_results_mean['filter'] == filter]
+                            filter_data_std = weight_results_std[weight_results_std['filter'] == filter]
                             
                             # Calculate percentage variation between original and filtered metrics for each filter
-                            original_metric = filter_data[f'{metric_base}_original']
-                            filtered_metric = filter_data[f'{metric_base}_filtered']
-                            percentage_variation = ((filtered_metric - original_metric) / original_metric) * 100
+                            original_metric_mean = filter_data_mean[f'{metric_base}_original']
+                            filtered_metric_mean = filter_data_mean[f'{metric_base}_filtered']
+                            variation_mean = (filtered_metric_mean - original_metric_mean) / original_metric_mean
+
+                            original_metric_std = filter_data_std[f'{metric_base}_original']
+                            filtered_metric_std = filter_data_std[f'{metric_base}_filtered']
+                            variation_std = np.sqrt(
+                                                            ((filtered_metric_std/original_metric_mean) ** 2) + 
+                                                            (((filtered_metric_mean  * original_metric_std) / (original_metric_mean ** 2)) ** 2) 
+                                                        )
                             
                             # Plotting the percentage variation for the metric with each filter
-                            plt.plot(filter_data['noise_level'], percentage_variation, label=f'{filter_type}')
+                            plt.errorbar(
+                                df_filter_mean['noise_level'],  # x
+                                variation_mean,  # y
+                                yerr=variation_std,  # Erro (desvio padrão)
+                                fmt='-o',  # Formato dos pontos
+                                label=f'{filter}'
+                            )
                         
                         # Set up titles and labels for the plot
                         plt.title(f'{metric_base} Variation by Percentage - {benchmark}')
@@ -381,17 +439,31 @@ class Analysis:
                                 'maximum_degree']
                     
                     for metric in metrics:
-                        for filter in weight_results['filter'].unique():
-                            df_filter = weight_results[weight_results['filter'] == filter]
+                        for filter in weight_results_mean['filter'].unique():
+                            df_filter_mean = weight_results_mean[weight_results_mean['filter'] == filter]
+                            df_filter_std = weight_results_std[weight_results_std['filter'] == filter]
 
-                            df_filter = pd.concat([
+                            df_filter_std = pd.concat([
                                 pd.DataFrame({'noise_level': [0.0], 
-                                            f'{metric}_filtered': [df_filter[f'{metric}_original'].iloc[0]],
+                                            f'{metric}_filtered': [df_filter_std[f'{metric}_original'].iloc[0]],
                                             'filter': [filter]}),
-                                df_filter
+                                df_filter_std
+                            ], ignore_index=True)
+
+                            df_filter_mean = pd.concat([
+                                pd.DataFrame({'noise_level': [0.0], 
+                                            f'{metric}_filtered': [df_filter_mean[f'{metric}_original'].iloc[0]],
+                                            'filter': [filter]}),
+                                df_filter_mean
                             ], ignore_index=True)
                             
-                            plt.plot(df_filter['noise_level'], df_filter[f'{metric}_filtered'], label=filter)
+                            plt.errorbar(
+                                df_filter_mean['noise_level'],  # x
+                                df_filter_mean[f'{metric}_filtered'],  # y
+                                yerr=df_filter_std[f'{metric}_filtered'],  # Erro (desvio padrão)
+                                fmt='-o',  # Formato dos pontos
+                                label=f'{filter}'
+                            )
 
                         plt.title(f'{metric.capitalize()} by Noise Level - {benchmark}')
                         plt.xlabel('Noise Level')
@@ -403,7 +475,7 @@ class Analysis:
     def generate_class_results(self):
         graph_types = ['random', 'grid', 'barabasi_albert', 'watts_strogatz']
 
-        simulated_nets = pd.read_csv('results/simulatedNetsResults.csv')
+        simulated_nets = pd.read_csv('results/simulatedNetsResults.csv', index_col=0)
         simulated_nets['class'] = simulated_nets['filename'].apply(lambda filename: next(graph_type for graph_type in graph_types if graph_type in filename))
         simulated_nets.drop('filename', axis = 1)
         mean_res = simulated_nets.groupby(['class', 'noise_level', 'weighted', 'benchmark', 'filter']).mean(numeric_only=True)
@@ -427,5 +499,4 @@ class Analysis:
 
 if __name__ == '__main__':
     analysis = Analysis()
-
-    analysis.generate_results(False)
+    analysis.generate_graphics()
