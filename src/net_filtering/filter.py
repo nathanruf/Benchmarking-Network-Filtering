@@ -166,7 +166,7 @@ class Filter:
 
         edge_weights = preprocess_edge_weights()
 
-        c1 = initial_tetrahedron()
+        c1 = initial_tetrahedron(edge_weights)
         
         filtered_graph = nx.Graph()
         filtered_graph.add_nodes_from(original_graph.nodes())
