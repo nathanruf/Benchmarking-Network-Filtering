@@ -7,6 +7,7 @@ import itertools
 import matplotlib.pyplot as plt
 import time
 import numpy as np
+import re
 from enum import Enum
 from concurrent.futures import ProcessPoolExecutor
 from scipy.spatial.distance import cosine
@@ -477,25 +478,61 @@ class Analysis:
 
         simulated_nets = pd.read_csv('results/simulatedNetsResults.csv', index_col=0)
         simulated_nets['class'] = simulated_nets['filename'].apply(lambda filename: next(graph_type for graph_type in graph_types if graph_type in filename))
-        simulated_nets.drop('filename', axis = 1)
-        mean_res = simulated_nets.groupby(['class', 'noise_level', 'weighted', 'benchmark', 'filter']).mean(numeric_only=True)
-        std_deviation_res = simulated_nets.groupby(['class', 'noise_level', 'weighted', 'benchmark', 'filter']).std(numeric_only=True)
+        simulated_nets['size'] = simulated_nets['filename'].apply(lambda filename: int(filename.split('_')[-1][5:]))
+        simulated_nets.drop('filename', axis = 1, inplace=True)
 
         real_nets = pd.read_csv('results/realNetsResults.csv')
         real_nets['filename'] = real_nets['filename'].str.replace('_real_nets', '')
         real_nets_info = pd.read_csv('data/real_nets/ICON_info.csv')
-        real_nets = real_nets.merge(real_nets_info[['network_name', 'networkDomain']], 
+        real_nets = real_nets.merge(real_nets_info[['network_name', 'networkDomain','number_nodes']], 
                              left_on='filename', right_on='network_name', 
                              how='left')
 
         real_nets['class'] = real_nets['networkDomain']
-        real_nets.drop(['networkDomain', 'network_name', 'filename'], axis=1, inplace=True)
+        real_nets['size'] = real_nets['number_nodes']
+        real_nets.drop(['networkDomain', 'network_name', 'filename', 'number_nodes'], axis=1, inplace=True)
 
-        mean_res = pd.concat([mean_res, real_nets.groupby(['class', 'noise_level', 'weighted', 'benchmark', 'filter']).mean(numeric_only=True)])
-        std_deviation_res = pd.concat([std_deviation_res, real_nets.groupby(['class', 'noise_level', 'weighted', 'benchmark', 'filter']).std(numeric_only=True)])
+        group_columns = ['class', 'noise_level', 'weighted', 'benchmark', 'filter']
+
+        nets = pd.concat([real_nets, simulated_nets]).groupby(group_columns + ['size']).mean(numeric_only=True).reset_index()
+
+        mean_res = nets.copy()
+
+        for column in mean_res.columns:
+            if column in group_columns + ['size']:
+                continue
+            mean_res[column] = mean_res[column] * mean_res['size']
+            
+        mean_res = mean_res.groupby(group_columns).sum(numeric_only=True)
+        
+        for column in mean_res.columns:
+            if column in group_columns + ['size']:
+                continue
+            mean_res[column] = mean_res[column] / mean_res['size']
+
+        mean_res.drop('size', axis=1, inplace=True)
+
+        std_res = mean_res.copy().rename(columns = lambda col: 'mean_' + col if col not in group_columns else col)
+
+        std_res = pd.merge(nets, std_res, on = group_columns, how='inner')
+
+        for column in std_res.columns:
+            if column in group_columns + ['size'] or 'mean_' in column:
+                continue
+            std_res[column] = std_res['size'] * ((std_res[column] - std_res[f'mean_{column}']) ** 2)
+
+        std_res.drop([column for column in std_res.columns if 'mean_' in column], axis=1, inplace=True)
+        std_res = std_res.groupby(group_columns).sum(numeric_only=True)
+
+        for column in std_res.columns:
+            if column in group_columns + ['size']:
+                continue
+            std_res[column] = (std_res[column] / std_res['size']) ** 0.5
+
+        std_res.drop('size', axis=1, inplace=True)
 
         mean_res.to_csv('results/resultsMean.csv')
-        std_deviation_res.to_csv('results/resultsStd.csv')
+        std_res.to_csv('results/resultsStd.csv')
 
 if __name__ == '__main__':
     analysis = Analysis()
