@@ -4,7 +4,7 @@ import os
 from typing import Callable, Dict, Any, List
 from pathlib import Path
 
-from src.benchmark.networkIndicators import (
+from netfilterbench.benchmark.networkIndicators import (
     calculate_information_retention,
     calculate_jaccard_similarity,
     common_metrics,

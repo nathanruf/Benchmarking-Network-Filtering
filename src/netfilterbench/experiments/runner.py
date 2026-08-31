@@ -5,8 +5,8 @@ from concurrent.futures import ProcessPoolExecutor
 from typing import List, Callable
 from tqdm import tqdm
 
-from src.data_loader.loader import list_graph_files
-from src.experiments.experiment import run_experiment
+from netfilterbench.data_loader.loader import list_graph_files
+from netfilterbench.experiments.experiment import run_experiment
 
 
 def _generate_combinations(paths, filters, benchmarks, noise_levels, indicator_funcs):

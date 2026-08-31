@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "netfilterbench"
+version = "0.1.0"
+description = "Benchmark network filtering and sparsification techniques against your own graphs."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "Nathan Augusto Rufino" },
+    { name = "Thársis T. P. Souza" },
+    { name = "Douglas Donizete de Castilho Braz" },
+]
+keywords = [
+    "network science",
+    "graph sparsification",
+    "network filtering",
+    "benchmarking",
+    "complex networks",
+    "graph theory",
+    "networkx",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+dependencies = [
+    "networkx>=2.8",
+    "numpy>=1.21",
+    "scipy>=1.7",
+    "tqdm>=4.60",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.urls]
+Homepage = "https://github.com/nathanruf/Benchmarking-Network-Filtering"
+Repository = "https://github.com/nathanruf/Benchmarking-Network-Filtering"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["netfilterbench*"]
