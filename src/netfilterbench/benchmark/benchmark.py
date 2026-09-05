@@ -61,6 +61,20 @@ def __add_noise_to_network(input_net: nx.Graph, noise_level: float, seed: int = 
 
     nodes_list = list(noisy_net.nodes())
 
+    # Only assign a weight to injected noise edges if the original network was
+    # itself weighted. An unweighted input should stay unweighted -- adding a
+    # random weight attribute to noise edges (and not to the real ones) would
+    # be meaningless and would make the graph inconsistently attributed.
+    existing_weights = [d['weight'] for _, _, d in noisy_net.edges(data=True) if 'weight' in d]
+    is_weighted = bool(existing_weights)
+    min_weight, max_weight = (min(existing_weights), max(existing_weights)) if is_weighted else (0, 1)
+
+    def _add_noise_edge(net, u, v):
+        if is_weighted:
+            net.add_edge(u, v, weight=np.random.uniform(min_weight, max_weight))
+        else:
+            net.add_edge(u, v)
+
     current_density = current_edges / max_possible_edges
 
     if current_density > 0.6:
@@ -69,14 +83,19 @@ def __add_noise_to_network(input_net: nx.Graph, noise_level: float, seed: int = 
         chosen_indices = np.random.choice(len(non_edges), size=num_edges_to_add, replace=False)
         for idx in chosen_indices:
             u, v = non_edges[idx]
-            noisy_net.add_edge(u, v, weight=np.random.uniform(0, 1))
+            _add_noise_edge(noisy_net, u, v)
     else:
         # For sparse graphs: standard sampling (fast and memory-efficient)
+        # Sample integer indices into nodes_list rather than the node labels
+        # themselves -- np.random.choice requires 1-D input, which breaks for
+        # non-scalar node labels (e.g. the (i, j) tuples used by grid graphs).
+        n_nodes = len(nodes_list)
         edges_added = 0
         while edges_added < num_edges_to_add:
-            u, v = np.random.choice(nodes_list, 2, replace=False)
+            i, j = np.random.choice(n_nodes, 2, replace=False)
+            u, v = nodes_list[i], nodes_list[j]
             if not noisy_net.has_edge(u, v):
-                noisy_net.add_edge(u, v, weight=np.random.uniform(0, 1))
+                _add_noise_edge(noisy_net, u, v)
                 edges_added += 1
 
     return noisy_net

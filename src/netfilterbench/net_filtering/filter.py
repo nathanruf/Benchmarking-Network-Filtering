@@ -77,21 +77,30 @@ def _ensure_undirected(G: nx.Graph, kwargs: dict) -> nx.Graph:
 
 def mst(G: nx.Graph, **kwargs) -> nx.Graph:
     """
-    Computes the Minimum Spanning Tree (or forest if disconnected).
+    Computes the Maximum Spanning Tree (or forest if disconnected).
+
+    Weight is treated as a similarity/importance measure (higher = stronger
+    connection), consistent with the other weight-aware filters in this
+    package (tmfg, threshold, disparity_filter). The tree retains the edges
+    of largest total weight required to connect all nodes.
 
     Args:
         G (nx.Graph): Input graph.
 
     Returns:
-        nx.Graph: Minimum spanning tree/forest.
+        nx.Graph: Maximum spanning tree/forest.
     """
     G = _ensure_undirected(G, kwargs)
-    return nx.minimum_spanning_tree(G)
+    return nx.maximum_spanning_tree(G)
 
 
 def pmfg(G: nx.Graph, **kwargs) -> nx.Graph:
     """
     Computes the Planar Maximally Filtered Graph (PMFG).
+
+    Edges are processed in descending order of weight (highest similarity/
+    importance first), adding each while the graph remains planar, per
+    Tumminello et al. (2005).
 
     Args:
         G (nx.Graph): Input graph.
@@ -105,7 +114,7 @@ def pmfg(G: nx.Graph, **kwargs) -> nx.Graph:
     H.add_nodes_from(G.nodes())
     edge_limit = 3 * (len(G.nodes) - 2)
 
-    sorted_edges = sorted(G.edges(data=True), key=lambda x: x[2]['weight'])
+    sorted_edges = sorted(G.edges(data=True), key=lambda x: x[2]['weight'], reverse=True)
 
     for u, v, data in sorted_edges:
         H.add_edge(u, v, weight=data['weight'])
