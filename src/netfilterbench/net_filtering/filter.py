@@ -224,15 +224,33 @@ def threshold(G: nx.Graph, **kwargs) -> nx.Graph:
     """
     Applies a global threshold filter on edge weights.
 
+    By default the cutoff is derived from this graph's own weight
+    distribution (the `quantile`-th quantile, defaulting to the median),
+    instead of a fixed absolute value: since graphs in a benchmark battery
+    can have wildly different weight scales, the same fixed cutoff may keep
+    almost every edge in one graph and none in another, whereas a quantile
+    keeps comparable filtering strength across graphs (e.g. `quantile=0.7`
+    always keeps ~30% of edges, the strongest ones, regardless of scale).
+    Pass `threshold` explicitly to instead use a fixed absolute cutoff.
+
     Args:
         G (nx.Graph): Input graph.
-        threshold (float, optional): Minimum weight to keep. Defaults to 0.5.
+        quantile (float, optional): Quantile (0-1) of this graph's edge-weight
+            distribution to use as the cutoff. Defaults to 0.5 (median).
+            Ignored if `threshold` is given.
+        threshold (float, optional): Fixed minimum weight to keep, overriding
+            `quantile` with an absolute cutoff.
 
     Returns:
         nx.Graph: Filtered graph.
     """
     G = _ensure_undirected(G, kwargs)
-    t = kwargs.get("threshold", 0.5)
+
+    if "threshold" in kwargs:
+        t = kwargs["threshold"]
+    else:
+        weights = [data.get('weight', 0) for _, _, data in G.edges(data=True)]
+        t = np.quantile(weights, kwargs.get("quantile", 0.5)) if weights else 0
 
     H = nx.Graph()
     H.add_nodes_from(G.nodes())
@@ -328,7 +346,7 @@ def simmelian_sparsifier(G: nx.Graph, **kwargs) -> nx.Graph:
             key=lambda x: simmelian_strength(u, x),
             reverse=True
         )
-        H.add_edges_from((u, v) for v in neighbors[:max_rank])
+        H.add_edges_from((u, v, G[u][v]) for v in neighbors[:max_rank])
 
     return H
 
@@ -345,13 +363,13 @@ def disparity_filter(G: nx.Graph, **kwargs) -> nx.Graph:
 
     Args:
         G (nx.Graph): Input weighted graph.
-        alpha (float, optional): Significance level for the filter. Defaults to 0.5.
+        alpha (float, optional): Significance level for the filter. Defaults to 0.255.
 
     Returns:
         nx.Graph: Filtered graph.
     """
     G = _ensure_undirected(G, kwargs)
-    alpha = kwargs.get("alpha", 0.5)
+    alpha = kwargs.get("alpha", 0.255)
 
     H = nx.Graph()
     H.add_nodes_from(G.nodes())
