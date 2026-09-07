@@ -1,59 +1,124 @@
-import pandas as pd
+"""
+Sanity tests for the network filtering benchmark pipeline.
 
-class TestCsvResults:
-    def test_density_matches_formula(self):
-        real = pd.read_csv('results/realNetsResults.csv')
-        nets_info = pd.read_csv('data/real_nets/ICON_info.csv')
+These tests exercise the current pipeline end-to-end on a handful of small
+graphs (a few real networks and small n=100 Watts-Strogatz graphs) instead
+of relying on pre-generated result CSVs.
 
-        real['filename'] = real['filename'].str.replace('_real_nets', '')
+The previous version of this file asserted against
+results/realNetsResults.csv and results/simulatedNetsResults.csv using a
+schema (`filename` column, a `bench_net2net_filtering` benchmark name, and
+short indicator column names such as `information_retention`/`jaccard`
+straight in the row) that predates the current netfilterbench package.
+Today, run_experiment() produces rows keyed by `graph_name`, and scalar
+indicators keep the function's own name (e.g.
+`calculate_information_retention`) as their column, so those old
+assumptions no longer hold. Running small experiments directly, rather
+than reading old CSVs, keeps these tests correct as the package evolves
+and does not depend on any specific benchmark run having been executed
+first.
 
-        real = real[real['benchmark'] != 'bench_structural_noise_filtering']
+Run with (from the repository root, since data paths below are relative):
+    pytest tests/test_csvresults.py
+"""
 
-        real = pd.merge(real, nets_info, left_on = 'filename', right_on = 'network_name')
+import functools
+import glob
 
-        assert (real['density_original'].round(2) == ((2 * real['number_edges']) / (real['number_nodes'] * (real['number_nodes'] - 1))).round(2) ).all(), 'Density should match with the formula'
-    
-    def test_clustering_index_is_greater_than_0_1_for_ws(self):
-        simulated = pd.read_csv('results/simulatedNetsResults.csv')
+import pytest
 
-        ws_nets = simulated[simulated['filename'].str.contains('watts')]
+from netfilterbench import (
+    bench_noise_filtering,
+    calculate_information_retention,
+    calculate_jaccard_similarity,
+    common_metrics,
+    load_graph,
+    mst,
+    predictive_filtering_metrics,
+    run_experiment,
+)
 
-        ws_nets = ws_nets[ws_nets['benchmark'] != 'bench_structural_noise_filtering']
+INDICATOR_FUNCS = [
+    calculate_information_retention,
+    calculate_jaccard_similarity,
+    common_metrics,
+    predictive_filtering_metrics,
+]
 
-        assert (ws_nets['average_clustering_original'] > 0.1).all(), 'Clustering index should be greater than 0.1'
+# Small, fast fixtures kept deterministic via sorted() + a fixed slice.
+REAL_NET_SAMPLE = sorted(glob.glob("data/real_nets/graphs/*.pickle"))[:2]
+WS_SMALL_SAMPLE = sorted(
+    glob.glob("data/simulated_nets/watts_strogatz/unweighted/*graph100.pickle")
+)[:2]
 
-    def test_filtered_density_is_smaller_than_original(self):
-        simulated = pd.read_csv('results/simulatedNetsResults.csv')
-        real = pd.read_csv('results/realNetsResults.csv')
+pytestmark = pytest.mark.skipif(
+    not REAL_NET_SAMPLE, reason="data/real_nets/graphs is empty or missing"
+)
 
-        simulated = simulated[(simulated['benchmark'] == 'bench_net2net_filtering') & (simulated['filter'] != 'k_core_decomposition')]
-        real = real[(real['benchmark'] == 'bench_net2net_filtering') & (real['filter'] != 'k_core_decomposition')]
 
-        assert (simulated['density_original'] >= simulated['density_filtered']).all(), 'Original density should be greater than filtered - simulated nets'
-        assert (real['density_original'] >= real['density_filtered']).all(), 'Original density should be greater than filtered - real nets'
+@functools.lru_cache(maxsize=None)
+def _run(graph_path, filter_func=mst, noise_level=0.1):
+    # Cached: several tests below share the same (graph, filter, noise_level)
+    # combination and would otherwise redundantly recompute all metrics.
+    return run_experiment(
+        graph_path, filter_func, bench_noise_filtering, noise_level, INDICATOR_FUNCS
+    )
 
-    def test_metrics_are_numeric(self):
-        simulated = pd.read_csv('results/simulatedNetsResults.csv')
-        real = pd.read_csv('results/realNetsResults.csv')
 
-        simulated = simulated.drop(['filter', 'benchmark', 'noise_level', 'average_path_length_original', 'average_path_length_filtered',
-                        'diameter_original', 'diameter_filtered', 'filename', 'weighted'], axis=1)
-        real = real.drop(['filter', 'benchmark', 'noise_level', 'average_path_length_original', 'average_path_length_filtered',
-                        'diameter_original', 'diameter_filtered', 'filename', 'weighted'], axis=1)
-        
-        assert simulated.select_dtypes(include = 'number').shape[1] == simulated.shape[1], 'Simulated results contain non-numeric values'
-        assert real.select_dtypes(include = 'number').shape[1] == real.shape[1], 'Real results contain non-numeric values'
+class TestResultSchema:
+    """Every experiment result should carry the expected base fields."""
 
-    def test_original_density_greater_than_zero(self):
-        simulated = pd.read_csv('results/simulatedNetsResults.csv')
-        real = pd.read_csv('results/realNetsResults.csv')
+    @pytest.mark.parametrize("graph_path", REAL_NET_SAMPLE)
+    def test_base_fields(self, graph_path):
+        row = _run(graph_path)
+        assert row["filter"] == "mst"
+        assert row["benchmark"] == "bench_noise_filtering"
+        assert row["noise_level"] == 0.1
+        assert row["graph_name"]
 
-        assert (simulated['density_original'] > 0).all(), 'Original density for simulated nets is not greater than zero'
-        assert (real['density_original'] > 0).all(), 'Original density for real nets is not greater than zero'
+    @pytest.mark.parametrize("graph_path", REAL_NET_SAMPLE)
+    def test_metrics_are_numeric_or_none(self, graph_path):
+        row = _run(graph_path)
+        for key, value in row.items():
+            if key in ("graph_name", "filter", "benchmark"):
+                continue
+            assert value is None or isinstance(value, (int, float)), (
+                f"{key} is not numeric: {value!r}"
+            )
 
-    def test_filtered_density_greater_than_zero(self):
-        simulated = pd.read_csv('results/simulatedNetsResults.csv')
-        real = pd.read_csv('results/realNetsResults.csv')
 
-        assert (simulated['density_filtered'] > 0).all(), 'Filtered density for simulated nets is not greater than zero'
-        assert (real['density_filtered'] > 0).all(), 'Filtered density for real nets is not greater than zero'
+class TestDensityInvariants:
+    @pytest.mark.parametrize("graph_path", REAL_NET_SAMPLE)
+    def test_density_matches_formula(self, graph_path):
+        row = _run(graph_path)
+        graph = load_graph(graph_path)
+        n, m = graph.number_of_nodes(), graph.number_of_edges()
+        expected_density = (2 * m) / (n * (n - 1))
+        assert row["density_original"] == pytest.approx(expected_density, rel=1e-6)
+
+    @pytest.mark.parametrize("graph_path", REAL_NET_SAMPLE)
+    def test_mst_never_increases_density(self, graph_path):
+        # MST only ever removes edges, so density cannot increase regardless
+        # of the noise added beforehand.
+        row = _run(graph_path)
+        assert row["density_filtered"] <= row["density_original"] + 1e-9
+
+    @pytest.mark.parametrize("graph_path", REAL_NET_SAMPLE)
+    def test_densities_are_positive(self, graph_path):
+        row = _run(graph_path)
+        assert row["density_original"] > 0
+        assert row["density_filtered"] > 0
+
+
+class TestWattsStrogatzClustering:
+    """Watts-Strogatz networks should keep their signature high clustering
+    even after noise + MST filtering is applied to the *original* graph
+    (checked here on the unfiltered/original side of the result)."""
+
+    @pytest.mark.skipif(
+        not WS_SMALL_SAMPLE, reason="no small watts-strogatz graphs found"
+    )
+    @pytest.mark.parametrize("graph_path", WS_SMALL_SAMPLE)
+    def test_clustering_is_high(self, graph_path):
+        row = _run(graph_path)
+        assert row["average_clustering_original"] > 0.1
