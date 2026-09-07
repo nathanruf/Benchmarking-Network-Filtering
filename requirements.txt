@@ -1,7 +1,14 @@
+# Full repository (running main.py, regenerating simulated networks,
+# generating plots, and running the test suite).
+#
+# If you only need the netfilterbench library in another project, install
+# the package itself instead (see the README) — it declares its own,
+# smaller dependency set (networkx, numpy, scipy, tqdm).
+
 networkx
 numpy
 scipy
 pandas
 matplotlib
-seaborn
-scikit-learn
+tqdm
+pytest

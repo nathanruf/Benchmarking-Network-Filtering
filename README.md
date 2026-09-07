@@ -1,64 +1,128 @@
+## Benchmarking Network Filtering
 
-##  Benchmarking Network Filtering
-
-This repository implements a framework for benchmarking various network filtering techniques. It also provides real and simulated networks and it implements common network filtering techniques for benchmarking purposes. See original research proposal [HERE](https://docs.google.com/document/d/1d4vKYAfspwY5npEHu1PBNh5hgWPiw_A6idKMB5Vh7UE/edit).
+This repository implements a framework for benchmarking network filtering and sparsification techniques. It provides real and simulated networks, a set of common filtering algorithms, and a pipeline that measures how well each filter recovers the original network structure after noise is added.
 
 ## Project Structure
 
-- **data/:** Includes sample and real networks for benchmarking
-  - **real_nets/:** Networks extracted from Index of Complex Networks (ICON)
-  - **simulated_nets/:** Random networks
-- **src/:** Contains the source code for the benchmarking framework
-  - **benchmark/:** Benchmarking utilities and core functionality
-  - **net_filtering/:** Implementation of various network filtering techniques
-- **results/:** Directory to store benchmark results and performance metrics
+- **data/**: Real and simulated networks used as benchmarking input
+  - **real_nets/**: Networks extracted from the Index of Complex Networks (ICON), one graph per `.pickle` file under `real_nets/graphs/`, plus `ICON_info.csv` with per-network metadata
+  - **simulated_nets/**: Synthetically generated networks (see `generate_simulated_networks.py`)
+- **src/netfilterbench/**: The installable package — everything below is importable as `netfilterbench` after installing it (see Installation)
+  - **net_filtering/**: Implementation of the network filtering/sparsification techniques (`filter.py`)
+  - **benchmark/**: Noise-injection and benchmarking logic (`benchmark.py`) and the network comparison metrics (`networkIndicators.py`)
+  - **data_loader/**: Utilities for listing graph files on disk (`loader.py`)
+  - **experiments/**: Runs a single filter/benchmark/noise-level combination on one graph (`experiment.py`) and orchestrates all combinations in parallel, writing results incrementally to CSV (`runner.py`)
+- **src/visualization/**: Generates the paper's result plots (`plots.py`) — project-specific analysis code, not part of the `netfilterbench` package
+- **main.py**: Configuration-driven entry point — pick filters, benchmarks, noise levels, and indicators, then run the full pipeline over `data/`
+- **compare_results.py**: Compares two result CSVs (e.g. before/after a code change) for a given filter/benchmark/noise-level combination
+- **results/**: Where benchmark results (CSVs) and generated plots are stored
+- **tests/**: Sanity tests for the pipeline (`pytest tests/`)
 
 ## Installation
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/nathanruf/Benchmarking-Network-Filtering.git
-   ```
+`netfilterbench` (the filters, comparison metrics, and the parallel benchmark runner — everything under `src/netfilterbench/`) can be installed on its own as a library, independently of the rest of this repository.
 
-2. Navigate to the project directory:
-   ```
-   cd Benchmarking-Network-Filtering
-   ```
+### As a library, in another project
 
-3. Install the required dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
+Not published on PyPI yet. Until it is, install straight from GitHub:
+
+```
+pip install git+https://github.com/nathanruf/Benchmarking-Network-Filtering.git
+```
+
+or, for local development against a cloned copy (editable install — code changes are picked up without reinstalling):
+
+```
+git clone https://github.com/nathanruf/Benchmarking-Network-Filtering.git
+cd Benchmarking-Network-Filtering
+pip install -e .
+```
+
+Either way this pulls in only `netfilterbench`'s own dependencies (`networkx`, `numpy`, `scipy`, `tqdm`) — not the full repository's.
+
+### For working on this repository
+
+Clone the repository, then install everything needed to run `main.py`, regenerate simulated networks, produce plots, and run the test suite:
+
+```
+git clone https://github.com/nathanruf/Benchmarking-Network-Filtering.git
+cd Benchmarking-Network-Filtering
+pip install -r requirements.txt
+pip install -e .
+```
 
 ## Usage
 
-To run a benchmark:
+`main.py` is the entry point and doubles as a runnable usage example: edit the configuration section at the top of the file to choose which filters, benchmarks, noise levels, and indicators to run, then execute:
 
-1. Ensure you have the necessary dataset in the `data/` directory.
-2. Use the `src/benchmark/bench_noise_filtering.py` script to benchmark a specific filter:
+```
+python main.py
+```
 
-   ```python
-   from src.benchmark.bench_noise_filtering import bench_noise_filtering
-   from src.net_filtering.filter import Filter
-   import networkx as nx
+```python
+# main.py — configuration section
+DATA_PATH = "data/real_nets/graphs"
+OUTPUT_PATH = "results/output.csv"
 
-   # Load your network
-   G = pickle.load("/data/simulated_nets/random_graph.pickle")
+FILTERS = [
+    mst,
+    k_core_decomposition,
+    # ... any subset of the filters in src/netfilterbench/net_filtering/filter.py
+]
 
-   # Create a filter instance
-   filter_instance = Filter()
+BENCHMARKS = [
+    bench_noise_filtering,             # NBF: noise before filtering
+    bench_structural_noise_filtering,  # NAF: noise after filtering
+]
 
-   # Run the benchmark
-   result = bench_noise_filtering(G, filter_instance.mst)
-   print(f"Result: {result")
-   ```
+NOISE_LEVELS = [0.1, 0.2, 0.3]
 
+INDICATOR_FUNCS = [
+    calculate_information_retention,
+    calculate_jaccard_similarity,
+    common_metrics,
+    predictive_filtering_metrics,
+]
+
+MAX_WORKERS = 4
+```
+
+This writes one row per (graph, filter, benchmark, noise_level) combination to `OUTPUT_PATH`, streaming results to disk as they complete rather than holding everything in memory.
+
+To use the pipeline directly instead of going through `main.py` — e.g. from your own project, once `netfilterbench` is installed — call `run_experiment` for a single combination:
+
+```python
+from netfilterbench import run_experiment, mst, bench_noise_filtering, calculate_jaccard_similarity
+
+result = run_experiment(
+    graph_path="data/simulated_nets/watts_strogatz/unweighted/0watts_strogatz_graph100.pickle",
+    filter_func=mst,
+    benchmark_func=bench_noise_filtering,
+    noise_level=0.1,
+    indicator_funcs=[calculate_jaccard_similarity],
+)
+print(result)
+```
+
+Filters that take parameters (e.g. `threshold`, `disparity_filter`) accept them as keyword arguments; use `functools.partial` to fix them before passing the filter into the pipeline:
+
+```python
+from functools import partial
+from netfilterbench import disparity_filter
+
+FILTERS = [partial(disparity_filter, alpha=0.1)]
+```
 
 ## Benchmarking Process
 
-1. The framework adds noise to the input network using the `add_noise_to_network` function.
-2. It then applies the specified filtering technique to the noisy network.
-3. The performance is evaluated by comparing the filtered network to the original network.
+Two benchmark variants are available, both defined in `src/netfilterbench/benchmark/benchmark.py`:
+
+1. **`bench_noise_filtering` (NBF — noise before filtering)**: adds random noise edges to the original network, applies the filter to the noisy network, and compares the result to the *original* network.
+2. **`bench_structural_noise_filtering` (NAF — noise after filtering)**: first applies the filter to the original network to obtain a structural baseline, adds noise to that structural network, applies the filter again, and compares the result to the *structural* (once-filtered) network — measuring how well the filter recovers a structure it has already produced, rather than the raw original.
+
+For both variants, the comparison between the two networks is done using the indicator functions configured in `INDICATOR_FUNCS` (see `src/netfilterbench/benchmark/networkIndicators.py`): edge-set similarity (Jaccard), degree-distribution similarity (information retention), edge-level prediction metrics (precision/recall/F1/RMSE), and a set of common structural metrics computed on both networks (degree, clustering, path length, centrality, assortativity, density, etc.).
+
+> **Note on reproducibility:** noise injection is randomized. `bench_noise_filtering`/`bench_structural_noise_filtering` accept a `seed` parameter (default `42`), but at least one full round of the results currently in `results/` was generated without pinning it explicitly — those results are not guaranteed to be exactly reproducible from a fresh run.
 
 ## Available Data
 
@@ -66,97 +130,73 @@ The `/data` directory contains both real and simulated network datasets for benc
 
 ### Real Networks
 
-The `/data/real_nets/` directory contains networks extracted from ICON (Index of Complex Networks). These networks represent various real-world systems and phenomena across different domains. See networks metadata [here](https://docs.google.com/spreadsheets/d/1DCSPqD3cLDKZ00QC7NjZpjgnE33coCXwigjxTY5NhYc/edit?usp=sharing).
-
-1. Full Data: `real_net.pickle`
-
-Corpus of 550 real-world networks drawn from the Index of Complex Networks (ICON) used in this [PNAS paper](https://github.com/Aghasemian/OptimalLinkPrediction). This corpus spans a variety of sizes and structures, with 23% social, 23% economic, 32% biological, 12% technological, 3% information, and 7% transportation graphs.
-
-2. Sample Data: `real_net_sample.pickle`
-
-A sample of 4 hand-picked networks to run quick benchmarking; network_index = [447, 133, 122, 80]. Refer to [ICON network metadata](https://docs.google.com/spreadsheets/d/1DCSPqD3cLDKZ00QC7NjZpjgnE33coCXwigjxTY5NhYc/edit?usp=sharing) to view details of those sample networks.
-
+`/data/real_nets/graphs/` contains 550 individual `.pickle` files, one per network, extracted from ICON (Index of Complex Networks). These networks represent various real-world systems and phenomena across different domains: 23% social, 23% economic, 32% biological, 12% technological, 3% information, and 7% transportation graphs — drawn from the corpus used in this [PNAS paper](https://github.com/Aghasemian/OptimalLinkPrediction). Per-network metadata (name, domain, size, etc.) is in `ICON_info.csv`; see the full [ICON network metadata](https://docs.google.com/spreadsheets/d/1DCSPqD3cLDKZ00QC7NjZpjgnE33coCXwigjxTY5NhYc/edit?usp=sharing) for details.
 
 ### Simulated Networks
 
-The `/data/simulated_nets/` directory contains artificially generated network datasets. These include:
+`/data/simulated_nets/` contains artificially generated networks across five graph models:
 
 1. Random Graphs (Erdős-Rényi model)
-   - Unweighted: `random_graph.pickle`
-   - Weighted: `random_graph_weighted.pickle`
-
-2. Grid Graphs
-   - Unweighted: `grid_graph.pickle`
-   - Weighted: `grid_graph_weighted.pickle`
-
-3. Barabási-Albert Graphs (Scale-free networks)
-   - Unweighted: `barabasi_albert_graph.pickle`
-   - Weighted: `barabasi_albert_graph_weighted.pickle`
-
+2. Grid Graphs (periodic)
+3. Barabási-Albert Graphs (scale-free networks)
 4. LFR Benchmark Graphs (with community structure)
-   - Unweighted: `lfr_benchmark_graph.pickle`
-   - Weighted: `lfr_benchmark_graph_weighted.pickle`
+5. Watts-Strogatz Graphs (small-world networks)
 
-5. Watts-Strogatz Graphs (Small-world networks)
-   - Unweighted: `watts_strogatz_graph.pickle`
-   - Weighted: `watts_strogatz_graph_weighted.pickle`
+For each model, 100 instances are generated at each of 10 sizes (100 to 1,000 nodes, in steps of 100), both as unweighted and edge-weighted graphs — 2,000 graphs per model, 10,000 in total. Files follow the pattern `data/simulated_nets/<model>/<weighted|unweighted>/<instance_index><model>_graph<size>.pickle` (e.g. `data/simulated_nets/watts_strogatz/unweighted/0watts_strogatz_graph100.pickle`).
 
-These simulated networks provide a diverse set of graph structures and properties, allowing for comprehensive benchmarking of filtering techniques across various network types.
-
-To generate new simulated networks or modify existing ones, refer to the `data/simulated_nets/generate_simulated_networks.py` script.
+To regenerate these networks (or generate new ones), run `python data/simulated_nets/generate_simulated_networks.py` (pass `--override` to regenerate files that already exist).
 
 ## Available Network Filtering Techniques
 
-The `src/net_filtering/filter.py` file contains various network filtering and graph sparsification techniques. Here's an overview of the available methods:
+`src/netfilterbench/net_filtering/filter.py` implements the following filtering and sparsification techniques. All of them share a single interface — `func(graph: nx.Graph, **kwargs) -> nx.Graph` — and any parameters are passed as keyword arguments (see the `functools.partial` example above). Directed graphs are automatically converted to undirected via `to_undirected()` before filtering.
 
-1. Minimum Spanning Tree (MST)
-   - Method: `mst(graph)`
-   - Computes the Minimum Spanning Tree of a graph, keeping the minimum set of edges that connect all nodes with the lowest total edge weight.
-
-2. Planar Maximally Filtered Graph (PMFG)
-   - Method: `pmfg(graph)`
-   - Constructs a planar graph that maximizes the sum of edge weights while maintaining planarity.
-
-3. Global Threshold Filter
-   - Method: `threshold(graph, threshold)`
-   - Applies a global threshold to edge weights, removing edges below the specified threshold.
-
-4. Local Degree Sparsifier
-   - Method: `local_degree_sparsifier(G, target_ratio)`
-   - Sparsifies the graph based on local node degrees, keeping a target ratio of edges.
-
-5. Random Edge Sparsifier
-   - Method: `random_edge_sparsifier(G, target_ratio, seed=42)`
-   - Randomly removes edges to achieve a target sparsity ratio.
-
-6. Simmelian Backbone Sparsifier
-   - Method: `simmelian_sparsifier(G, max_rank=5)`
-   - Implements Simmelian backbone sparsification, focusing on strongly embedded edges.
-
-7. Disparity Filter
-   - Method: `disparity_filter(G, alpha=0.05)`
-   - Implements the disparity filter technique as described in Serrano et al. (2009) PNAS paper.
-
-8. Overlapping Trees
-   - Method: `overlapping_trees(G, num_trees=3)`
-   - Creates a reduced network by combining multiple spanning trees.
-
-9. K-Core Decomposition
-   - Method: `k_core_decomposition(G, k=None)`
-   - Implements k-core decomposition, recursively removing nodes with degree less than k.
-
-These filtering techniques can be applied to both weighted and unweighted graphs, providing a diverse set of approaches for network reduction and noise filtering. Each method has its own strengths and is suitable for different types of network structures and analysis goals.
+1. **Minimum Spanning Tree** — `mst(graph)`: keeps the minimum set of edges connecting all nodes with the lowest total edge weight.
+2. **Planar Maximally Filtered Graph (PMFG)** — `pmfg(graph)`: builds a planar graph that greedily maximizes total edge weight.
+3. **Triangulated Maximally Filtered Graph (TMFG)** — `tmfg(graph)`: builds a 3-planar (triangulated) graph maximizing total edge weight, faster to construct than PMFG.
+4. **Global Threshold Filter** — `threshold(graph, threshold=0.5)`: removes edges whose weight falls below the threshold.
+5. **Local Degree Sparsifier** — `local_degree_sparsifier(graph, target_ratio=0.5)`: keeps a target fraction of edges, prioritizing edges between higher-degree nodes.
+6. **Random Edge Sparsifier** — `random_edge_sparsifier(graph, target_ratio=0.5, seed=42)`: randomly removes edges down to a target fraction.
+7. **Simmelian Backbone Sparsifier** — `simmelian_sparsifier(graph, max_rank=5)`: keeps, for each node, only its top-ranked neighbors by shared-neighbor overlap.
+8. **Disparity Filter** — `disparity_filter(graph, alpha=0.5)`: keeps statistically significant edges per node, as described in Serrano et al. (2009), PNAS. The paper's recommended range for `alpha` is [0.01, 0.5].
+9. **Overlapping Trees** — `overlapping_trees(graph, num_trees=3)`: unions multiple randomized minimum spanning trees, as described in Garas & Argyrakis (2008), arXiv:0812.3227.
+10. **K-Core Decomposition** — `k_core_decomposition(graph, k=None)`: recursively removes nodes with degree below `k`; defaults to returning the main (largest) core.
 
 ### Adding New Filters
 
 To add a new filtering technique:
 
-1. Implement your filter in the `src/net_filtering/filter.py` file.
-2. Ensure your filter function takes a networkx Graph as input and returns a filtered Graph.
-3. Use the `bench_noise_filtering` function to benchmark your new filter.
+1. Implement it in `src/netfilterbench/net_filtering/filter.py`, following the `func(graph: nx.Graph, **kwargs) -> nx.Graph` interface. Export it from `src/netfilterbench/net_filtering/__init__.py` and `src/netfilterbench/__init__.py` if it should be part of the package's public API.
+2. Add it to the `FILTERS` list in `main.py` (optionally wrapped in `functools.partial` to fix parameters).
+3. It will automatically be benchmarked against every configured benchmark, noise level, and indicator function.
 
+## Visualizing Results
 
+`src/visualization/plots.py` generates plots from one or more result CSVs (searched recursively under a given input directory):
 
+```
+python -m src.visualization.plots --input results/ --output results/graphics
+```
 
+It produces five classes of plots per graph type/benchmark/filter combination: Jaccard score by noise level, precision/recall/F1 by noise level, cosine distance between original and filtered structural-metric vectors, percentage variation of each structural metric, and the absolute value of each structural metric (filtered vs. original).
 
+## Testing
 
+Sanity tests live in `tests/` and run small experiments directly through the current pipeline (rather than depending on any specific prior benchmark run). From the repository root:
+
+```
+pytest tests/
+```
+
+## Releasing New Versions of the Package
+
+1. Bump `version` in `pyproject.toml` (and `__version__` in `src/netfilterbench/__init__.py`) — PyPI (and a plain `pip install` from a git tag) will not accept re-uploading the same version number, so every release needs a new one. Follow [semantic versioning](https://semver.org/): patch (`0.1.1`) for fixes, minor (`0.2.0`) for backwards-compatible additions, major (`1.0.0`) for breaking changes to the public API.
+2. Build the distribution:
+   ```
+   pip install build
+   python -m build
+   ```
+3. Publish it. Options, in order of how immediately available they need to be:
+   - **Not on PyPI yet, needed by another project now**: point that project's dependency at this repository directly — `pip install git+https://github.com/nathanruf/Benchmarking-Network-Filtering.git@<tag-or-branch>` — no publishing step required.
+   - **PyPI** (once ready to make it public): `pip install twine` then `twine upload dist/*`. Consider a dry run on [TestPyPI](https://test.pypi.org/) first (`twine upload --repository testpypi dist/*`) to make sure the metadata and long description render correctly before the real upload.
+
+Downstream projects then upgrade by bumping the version they depend on and reinstalling — the same as any other PyPI package.
