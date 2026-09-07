@@ -7,7 +7,9 @@ Functions:
 - calculate_information_retention: Calculates a KL-based similarity score
   between the degree distributions of the original and filtered networks.
 - predictive_filtering_metrics: Computes edge prediction metrics (TP, TN, FP, FN, precision, recall, F1, RMSE).
-- common_metrics: Computes and compares common structural network metrics.
+- common_metrics: Computes and compares common structural network metrics,
+  including the Spearman correlation of per-node triangle counts between the
+  original and filtered graphs.
 - calculate_jaccard_similarity: Calculates the Jaccard similarity between two networks based on their edge sets.
 
 Note:
@@ -19,7 +21,7 @@ import networkx as nx
 import numpy as np
 import warnings
 from typing import List, Union
-from scipy.stats import entropy
+from scipy.stats import entropy, spearmanr
 
 
 def calculate_information_retention(original_graph: nx.Graph,
@@ -223,6 +225,26 @@ def common_metrics(original_graph: nx.Graph,
     ):
         results_dict[original_name] = original_metric
         results_dict[filtered_name] = filtered_metric
+
+    # Triangle-structure preservation: Spearman correlation between the
+    # per-node triangle counts of the original and filtered graphs (restricted
+    # to nodes present in both), indicating how well the filter preserves
+    # each node's local triangle structure.
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
+        try:
+            common_nodes = sorted(set(original_graph.nodes()) & set(filtered_graph.nodes()))
+            if len(common_nodes) >= 2:
+                original_triangles = nx.triangles(original_graph)
+                filtered_triangles = nx.triangles(filtered_graph)
+                original_vector = [original_triangles[node] for node in common_nodes]
+                filtered_vector = [filtered_triangles[node] for node in common_nodes]
+                correlation, _ = spearmanr(original_vector, filtered_vector)
+                results_dict['triangles_spearman_correlation'] = correlation
+            else:
+                results_dict['triangles_spearman_correlation'] = None
+        except Exception:
+            results_dict['triangles_spearman_correlation'] = None
 
     return results_dict
 
