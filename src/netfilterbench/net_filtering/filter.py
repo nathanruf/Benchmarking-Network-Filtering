@@ -357,7 +357,7 @@ def disparity_filter(G: nx.Graph, **kwargs) -> nx.Graph:
     Serrano et al. (2009) PNAS paper.
 
     Uses the closed-form solution for the significance integral:
-        alpha_ij = 1 - (1 - p_ij) ** (k - 1)
+        alpha_ij = (1 - p_ij) ** (k - 1)
 
     Recommended alpha range according to the original paper: [0.01, 0.5].
 
@@ -384,7 +384,7 @@ def disparity_filter(G: nx.Graph, **kwargs) -> nx.Graph:
                 weight = G[u][v].get('weight', 1)
                 p_ij = weight / strength
 
-                alpha_ij = 1 - (1 - p_ij) ** (k - 1)
+                alpha_ij = (1 - p_ij) ** (k - 1)
 
                 if alpha_ij < alpha:
                     H.add_edge(u, v, weight=weight)
